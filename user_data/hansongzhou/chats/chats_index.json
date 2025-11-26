@@ -1,0 +1,34 @@
+{
+  "conversations": [
+    {
+      "date": "2025-11-26",
+      "index": 1,
+      "file": "2025-11-26_chat1.json",
+      "finished": false
+    },
+    {
+      "date": "2025-11-26",
+      "index": 2,
+      "file": "2025-11-26_chat2.json",
+      "finished": true
+    },
+    {
+      "date": "2025-11-26",
+      "index": 3,
+      "file": "2025-11-26_chat3.json",
+      "finished": true
+    },
+    {
+      "date": "2025-11-26",
+      "index": 4,
+      "file": "2025-11-26_chat4.json",
+      "finished": true
+    },
+    {
+      "date": "2025-11-26",
+      "index": 5,
+      "file": "2025-11-26_chat5.json",
+      "finished": false
+    }
+  ]
+}
