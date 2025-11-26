@@ -17,6 +17,78 @@
       "index": 3,
       "file": "2025-11-26_chat3.json",
       "finished": true
+    },
+    {
+      "date": "2025-11-26",
+      "index": 4,
+      "file": "2025-11-26_chat4.json",
+      "finished": false
+    },
+    {
+      "date": "2025-11-26",
+      "index": 5,
+      "file": "2025-11-26_chat5.json",
+      "finished": false
+    },
+    {
+      "date": "2025-11-26",
+      "index": 6,
+      "file": "2025-11-26_chat6.json",
+      "finished": true
+    },
+    {
+      "date": "2025-11-26",
+      "index": 7,
+      "file": "2025-11-26_chat7.json",
+      "finished": false
+    },
+    {
+      "date": "2025-11-26",
+      "index": 8,
+      "file": "2025-11-26_chat8.json",
+      "finished": false
+    },
+    {
+      "date": "2025-11-26",
+      "index": 9,
+      "file": "2025-11-26_chat9.json",
+      "finished": false
+    },
+    {
+      "date": "2025-11-26",
+      "index": 10,
+      "file": "2025-11-26_chat10.json",
+      "finished": false
+    },
+    {
+      "date": "2025-11-26",
+      "index": 11,
+      "file": "2025-11-26_chat11.json",
+      "finished": true
+    },
+    {
+      "date": "2025-11-26",
+      "index": 12,
+      "file": "2025-11-26_chat12.json",
+      "finished": false
+    },
+    {
+      "date": "2025-11-26",
+      "index": 13,
+      "file": "2025-11-26_chat13.json",
+      "finished": true
+    },
+    {
+      "date": "2025-11-26",
+      "index": 14,
+      "file": "2025-11-26_chat14.json",
+      "finished": false
+    },
+    {
+      "date": "2025-11-26",
+      "index": 15,
+      "file": "2025-11-26_chat15.json",
+      "finished": false
     }
   ]
 }

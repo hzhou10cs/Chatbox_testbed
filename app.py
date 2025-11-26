@@ -237,7 +237,7 @@ with gr.Blocks(title="LLM Agent for Rural Health") as demo:
 
             # Chat
             with gr.Column(visible=False) as page_chat:
-                gr.Markdown("## 💬 Agent chat (UI test dummy replies)")
+                gr.Markdown("## 💬 Agent chat")
                 with gr.Row():
                     start_new_chat_btn = gr.Button("Start new conversation")
                     continue_chat_btn = gr.Button(

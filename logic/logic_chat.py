@@ -1,14 +1,16 @@
 import os
+from datetime import datetime
 from typing import Dict, Any, List, Tuple
 
 import gradio as gr
 
-from storage import get_user_dir, get_user_file, load_json, save_json, today_str
+from storage import get_user_dir, get_user_file, load_json, save_json, today_str, compute_plan_position
 from .logic_goals import load_goals_data, save_extractor_summary
 from llm_stub import llm_reply_stub
 
 from agents.chat import chat_agent  
 from agents.extractor import extractor_agent
+from .logic_progress import load_progress_data
 
 
 def get_chats_dir(username: str) -> str:
@@ -290,11 +292,47 @@ def chat_send_action(
     goals_entry = goals_data.get(today, {})
     feedback = goals_entry.get("feedback", "")
     
+    summary_text = goals_entry.get("summary", "") or ""
+    feedback_text = goals_entry.get("feedback", "") or ""
+    
+    plan_day, week_idx, day_in_week = compute_plan_position(user_info_state, today)
+    
+    progress_data = load_progress_data(username)
+    progress_entry = {}
+    if today in progress_data:
+        progress_entry = progress_data[today]
+    elif plan_day is not None:
+        key_by_week_day = f"week_{week_idx}_day_{day_in_week}"
+        progress_entry = progress_data.get(key_by_week_day, {})
+     
+    goals_context_parts: List[str] = []
+    # goals_context_parts.append(f"- Week: {week_idx}, Day {day_in_week}")
+
+    if progress_entry:
+        lines = ["Latest daily progress logged by the user for this plan day:"]
+        for k, v in progress_entry.items():
+            if v not in ("", None):
+                lines.append(f"- {k}: {v}")
+        goals_context_parts.append("\n".join(lines))
+
+
+    if summary_text:
+        goals_context_parts.append(
+            "Latest structured goal summary for this user:\n" + summary_text
+        )
+    if feedback_text:
+        goals_context_parts.append(
+            "User's latest goal feedback on these goals:\n" + feedback_text
+        )
+    goals_context = "\n\n".join(goals_context_parts)
+    
+    # goals_context = "\n"
+
     system_prompt = chat_agent.build_system_prompt_for_ui(
-        user_state, user_info_state, feedback
+        user_state, user_info_state, goals_context
     )
 
-    reply = llm_reply_stub(user_input, user_state, user_info_state, feedback)
+    reply = llm_reply_stub(user_input, user_state, user_info_state, goals_context)
 
     # 2) Update in-memory chat history and save this conversation
     new_history = chat_history_state + [(user_input, reply)]

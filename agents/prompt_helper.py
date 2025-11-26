@@ -65,7 +65,8 @@ def _ensure_domain(d: Optional[Dict]) -> Dict:
 
 def ensure_fixed_state_shape(state: Optional[Dict]) -> Dict:
     st = dict(state or {})
-    st.setdefault("week", 0)
+    st.setdefault("week", 1)
+    st.setdefault("day", 1)
     st.setdefault("patient", {})
     st.setdefault("status", {})
     st.setdefault("session", {})
