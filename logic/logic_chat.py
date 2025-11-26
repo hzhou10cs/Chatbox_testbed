@@ -6,6 +6,8 @@ import gradio as gr
 from storage import get_user_dir, get_user_file, load_json, save_json, today_str
 from .logic_goals import load_goals_data, save_extractor_summary
 from llm_stub import llm_reply_stub
+
+from agents.chat import chat_agent  
 from agents.extractor import extractor_agent
 
 
@@ -287,6 +289,10 @@ def chat_send_action(
     today = today_str()
     goals_entry = goals_data.get(today, {})
     feedback = goals_entry.get("feedback", "")
+    
+    system_prompt = chat_agent.build_system_prompt_for_ui(
+        user_state, user_info_state, feedback
+    )
 
     reply = llm_reply_stub(user_input, user_state, user_info_state, feedback)
 
@@ -324,7 +330,7 @@ def chat_send_action(
         )
 
     # Chatbot UI uses tuples, so we return new_history for both internal state and display.
-    return new_history, status_msg, new_history
+    return new_history, status_msg, new_history, system_prompt
 
 
 def refresh_history_list_action(user_state):

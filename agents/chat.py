@@ -22,6 +22,8 @@ from llm_config import (
     CHAT_MODEL_NAME,
 )
 
+from .prompt_chat import COACH_SYSTEM_PROMPT_V1, COACH_SYSTEM_PROMPT_FOR1B
+
 class ChatAgent:
     """
     Health coach chat agent.
@@ -38,13 +40,13 @@ class ChatAgent:
     def __init__(self):
         self.client = OpenAIStyleClient(VLLM_BASE_URL, CHAT_MODEL_NAME)
 
-    def _build_system_prompt(self, user_state: dict, user_info_state: dict | None, goals_feedback: str) -> str:
-        base_system_prompt = (
-            "You are a helpful, cautious health and weight-loss assistant. "
-            "You provide concise, practical advice on diet, exercise, and lifestyle. "
-            "You are not a doctor and you never provide medical diagnoses; "
-            "you always recommend consulting a healthcare professional for serious issues."
-        )
+    def _build_system_prompt(
+        self, 
+        user_state: dict,
+        user_info_state: dict | None, 
+        goals_feedback: str
+        ) -> str:
+        base_system_prompt = COACH_SYSTEM_PROMPT_FOR1B
 
         context_parts: List[str] = []
 
@@ -87,6 +89,15 @@ class ChatAgent:
             system_content += "\n\nAdditional context:\n" + "\n\n".join(context_parts)
 
         return system_content
+    
+    def build_system_prompt_for_ui(
+        self,
+        user_state: dict,
+        user_info_state: dict | None,
+        goals_feedback: str,
+    ) -> str:
+        """Return the full system prompt that will be sent to the model."""
+        return self._build_system_prompt(user_state, user_info_state, goals_feedback)
 
     def build_messages(
         self,

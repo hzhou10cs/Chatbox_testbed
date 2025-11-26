@@ -1,6 +1,6 @@
 {
-  "first_name": "Hans",
-  "last_name": "Zhou",
+  "first_name": "hans",
+  "last_name": "zhou",
   "gender": "Male",
   "occupation": "",
   "phone": "3528713790",
@@ -10,7 +10,7 @@
   "body_measurements": "",
   "weight_statement": "",
   "allergy": "N/A",
-  "medication": "N/A",
+  "medication": "Allergy to Aleve",
   "lifestyle": "N/A",
   "medical_history": "N/A",
   "photo_path": null,

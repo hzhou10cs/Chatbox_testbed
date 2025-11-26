@@ -7,4 +7,4 @@ python -m vllm.entrypoints.openai.api_server \
     --host 0.0.0.0 \
     --port 8000 
 
-python app.py
+# python app.py

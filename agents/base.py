@@ -5,6 +5,8 @@ import requests
 from llm_config import (
     VLLM_API_KEY,
     VLLM_TIMEOUT,
+    VLLM_BASE_URL,
+    CHAT_MODEL_NAME,
 )
 
 class OpenAIStyleClient:
@@ -23,7 +25,7 @@ class OpenAIStyleClient:
             "model": self.model_name,
             "messages": messages,
             "temperature": kwargs.get("temperature", 0.7),
-            "max_tokens": kwargs.get("max_tokens", 512),
+            "max_tokens": kwargs.get("max_tokens", 256),
             "stream": False,
         }
 
@@ -34,3 +36,5 @@ class OpenAIStyleClient:
 
         # Standard OpenAI-style result
         return data["choices"][0]["message"]["content"]
+    
+

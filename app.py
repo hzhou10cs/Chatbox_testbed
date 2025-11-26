@@ -22,6 +22,8 @@ from logic.logic_chat import (
 )
 from logic.logic_goals import load_goal_summary_for_ui, save_goal_feedback_action
 
+from dash_board import DASHBOARD_TXT
+
 
 def switch_page(page_name: str):
     """Return visibility updates for all main pages based on the active page name."""
@@ -37,7 +39,7 @@ def switch_page(page_name: str):
 
 ensure_base_dir()
 
-with gr.Blocks(title="Local LLM Health Assistant - UI Test") as demo:
+with gr.Blocks(title="LLM Agent for Rural Health") as demo:
     # Global states
     user_state = gr.State({"logged_in": False, "username": None})
     user_info_state = gr.State({})
@@ -117,13 +119,7 @@ with gr.Blocks(title="Local LLM Health Assistant - UI Test") as demo:
         with gr.Column(scale=4) as main_content:
             # Dashboard
             with gr.Column(visible=True) as page_dashboard:
-                gr.Markdown("## 📊 Dashboard")
-                gr.Markdown(
-                    "This is the **UI test version** of the Local LLM Health Assistant.\n\n"
-                    "- User accounts, profiles, progress, conversations, and goals are all stored under the `user_data/` directory.\n"
-                    "- For now, chat responses are dummy text (UI test mode).\n"
-                    "- Later, you can integrate your local LLM in `llm_reply_stub()`."
-                )
+                gr.Markdown(DASHBOARD_TXT)
 
             # Profile
             with gr.Column(visible=False) as page_profile:
@@ -262,6 +258,13 @@ with gr.Blocks(title="Local LLM Health Assistant - UI Test") as demo:
                 )
                 chat_status = gr.Markdown("", visible=False)
                 chat_send_btn = gr.Button("Send", visible=False)
+                
+                system_prompt_box = gr.Textbox(
+                    label="Current system prompt (for debugging only)",
+                    lines=12,     
+                    interactive=False,
+                    visible=True,
+                )
 
             # History
             with gr.Column(visible=False) as page_history:
@@ -592,7 +595,7 @@ with gr.Blocks(title="Local LLM Health Assistant - UI Test") as demo:
     chat_send_btn.click(
         chat_send_action,
         inputs=[chat_input, chat_history_state, user_state, user_info_state, chat_meta_state],
-        outputs=[chat_history_state, chat_status, chatbot],
+        outputs=[chat_history_state, chat_status, chatbot, system_prompt_box],
     )
 
     # Chat history
