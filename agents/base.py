@@ -3,9 +3,9 @@ from typing import Any, Dict, List
 import requests
 
 from llm_config import (
-    VLLM_API_KEY,
-    VLLM_TIMEOUT,
-    VLLM_BASE_URL,
+    LLM_API_KEY,
+    LLM_TIMEOUT,
+    LLM_BASE_URL,
     CHAT_MODEL_NAME,
 )
 
@@ -18,8 +18,8 @@ class OpenAIStyleClient:
 
     def chat(self, messages: List[Dict[str, str]], **kwargs: Any) -> str:
         headers: Dict[str, str] = {"Content-Type": "application/json"}
-        if VLLM_API_KEY:
-            headers["Authorization"] = f"Bearer {VLLM_API_KEY}"
+        if LLM_API_KEY:
+            headers["Authorization"] = f"Bearer {LLM_API_KEY}"
 
         payload: Dict[str, Any] = {
             "model": self.model_name,
@@ -30,7 +30,7 @@ class OpenAIStyleClient:
         }
 
         url = self.base_url + "/v1/chat/completions"
-        resp = requests.post(url, headers=headers, json=payload, timeout=VLLM_TIMEOUT)
+        resp = requests.post(url, headers=headers, json=payload, timeout=LLM_TIMEOUT)
         resp.raise_for_status()
         data = resp.json()
 

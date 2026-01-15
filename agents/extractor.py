@@ -1,12 +1,36 @@
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from agents.base import OpenAIStyleClient
+from agents.prompt_helper import EXAMPLES_B, PROMPT_EXTRACT, WEEKLY_SUMMARY
 
 from llm_config import (
     UI_TEST_MODE,
-    VLLM_BASE_URL,
+    LLM_BASE_URL,
     EXTRACTOR_MODEL_NAME,
 )
+
+
+def _format_extractor_input(agent_text: Optional[str], user_text: str) -> str:
+    agent_part = agent_text.strip() if agent_text else "NULL"
+    user_part = user_text.strip()
+    return f"Agent: {agent_part}\nUser: {user_part}"
+
+
+def build_extraction_messages(
+    agent_text: Optional[str],
+    user_text: str,
+    include_examples: bool = True,
+) -> List[Dict[str, str]]:
+    messages: List[Dict[str, str]] = [
+        {"role": "system", "content": PROMPT_EXTRACT.strip()}
+    ]
+    if include_examples:
+        for user_example, assistant_example in EXAMPLES_B:
+            messages.append({"role": "user", "content": user_example})
+            messages.append({"role": "assistant", "content": assistant_example})
+    messages.append({"role": "user", "content": _format_extractor_input(agent_text, user_text)})
+    return messages
+
 
 class ExtractorAgent:
     """
@@ -21,61 +45,53 @@ class ExtractorAgent:
     """
 
     def __init__(self):
-        self.client = OpenAIStyleClient(VLLM_BASE_URL, EXTRACTOR_MODEL_NAME)
+        self.client = OpenAIStyleClient(LLM_BASE_URL, EXTRACTOR_MODEL_NAME)
 
-    def build_messages(self, text_block: str) -> List[Dict[str, str]]:
-        system_prompt = (
-            "You are a summarizer and information extractor for a health-coaching dialog. "
-            "Given the recent conversation text, identify:\n"
-            "- the user's current goals,\n"
-            "- main obstacles or difficulties,\n"
-            "- any concrete actions or progress mentioned.\n\n"
-            "Return your answer as a compact JSON object with the keys:\n"
-            "{\n"
-            '  "goals": [list of short goal strings],\n'
-            '  "obstacles": [list of short obstacle strings],\n'
-            '  "progress": [list of short progress/action strings],\n'
-            '  "other_notes": [list of any other important details]\n'
-            "}\n\n"
-            "Do not include any additional text outside the JSON. "
-            "If you cannot infer something, use an empty list for that field."
-        )
+    def build_messages(self, agent_text: Optional[str], user_text: str) -> List[Dict[str, str]]:
+        return build_extraction_messages(agent_text, user_text, include_examples=True)
 
-        messages: List[Dict[str, str]] = [
-            {"role": "system", "content": system_prompt},
-            {
-                "role": "user",
-                "content": "Here is the recent conversation text:\n\n" + text_block.strip(),
-            },
-        ]
-        return messages
-
-    def extract_summary_json(self, text_block: str) -> str:
+    def extract_summary_json(self, agent_text: Optional[str], user_text: str) -> str:
         """
-        Return a JSON string with the structure described in build_messages().
+        Return a delta text block following PROMPT_EXTRACT instructions.
         The caller is responsible for parsing & storing it (e.g., in a JSON file).
         """
         if UI_TEST_MODE:
-            # In UI test mode we return an empty but valid JSON skeleton.
-            return (
-                '{\n'
-                '  "goals": [],\n'
-                '  "obstacles": [],\n'
-                '  "progress": [],\n'
-                '  "other_notes": []\n'
-                "}"
-            )
+            return "NONE"
 
-        messages = self.build_messages(text_block)
+        messages = self.build_messages(agent_text, user_text)
         try:
             return self.client.chat(messages, temperature=0.2, max_tokens=256)
         except Exception as e:
-            # Return a JSON-looking error to avoid crashing JSON parsers too badly
-            return (
-                '{\n'
-                f'  "error": "Extractor agent failed: {str(e)}"\n'
-                "}"
-            )
+            return f"[Extractor error] {e}"
+
+    def gen_weekly_report(self, chat_history: List[Dict[str, str]] | List[tuple]) -> str:
+        """
+        Summarize the current session using WEEKLY_SUMMARY prompt.
+        """
+        if UI_TEST_MODE:
+            return ""
+
+        lines: List[str] = []
+        for item in chat_history or []:
+            if isinstance(item, dict):
+                user_text = item.get("user", "")
+                assistant_text = item.get("assistant", "")
+            else:
+                user_text, assistant_text = item
+            lines.append(f"User: {str(user_text).strip()}")
+            lines.append(f"Agent: {str(assistant_text).strip()}")
+
+        messages: List[Dict[str, str]] = [
+            {"role": "system", "content": WEEKLY_SUMMARY},
+            {
+                "role": "user",
+                "content": (
+                    "Generate a Weekly Stage Report that will seed the next coaching session.\n"
+                    + "\n".join(lines).strip()
+                ),
+            },
+        ]
+        return self.client.chat(messages, temperature=0.2, max_tokens=512)
 
 
 extractor_agent = ExtractorAgent()

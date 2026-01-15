@@ -2,7 +2,7 @@ from typing import Dict, Any
 import json
 
 from storage import get_user_file, load_json, save_json, today_str
-from agents.prompt_helper import apply_delta_text, state_to_text
+from agents.generator import apply_delta_text, state_to_text
 
 
 def load_goals_data(username: str) -> Dict[str, Any]:
@@ -37,7 +37,7 @@ def _load_state_from_summary(summary_text: str) -> Dict[str, Any]:
 def save_extractor_summary(username: str, date_str: str, extractor_output: str) -> None:
     """
     Save the extractor's delta output into goals.json under this date,
-    using prompt_helper_b's fixed STATE schema.
+    using the fixed STATE schema.
     """
     goals = load_goals_data(username)
     entry = goals.get(date_str, {})

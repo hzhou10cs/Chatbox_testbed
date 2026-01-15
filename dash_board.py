@@ -1,7 +1,7 @@
 DASHBOARD_TXT = """
-## 📊 Dashboard – Local LLM Health Coach
+## 📊 Dashboard – LLM Behavioral Health Coach
 
-Welcome to the **Local LLM Health Assistant**.  
+Welcome to the **LLM Behavioral Health Assistant**.  
 This dashboard is a quick guide to what the app can do, how to use the UI, and how the backend is wired.
 
 This app has 3000+ lines of Python code for frontend + backend logic, plus prompt engineering for dual agents.
@@ -10,10 +10,10 @@ This app has 3000+ lines of Python code for frontend + backend logic, plus promp
 
 ### 🧭 What this app does (V0.1)
 
-This app is a **12-week weight-loss coaching assistant** with:
+This app is a **12-week behavioral health coaching assistant** with:
 
 - ⭐ **User accounts & profiles**  
-  Each user has a local account with basic contact info and health background.
+  Each user has an account with basic contact info and health background.
 
 - ⭐ **Progress tracking over weeks & days**  --> will be applied in prompt
   You can log progress by week/day and revisit or edit entries later.

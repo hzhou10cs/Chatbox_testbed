@@ -28,5 +28,23 @@
     "first_name": "fsu",
     "last_name": "user",
     "folder": "user_data/fsuuser"
+  },
+  "testtt": {
+    "password_hash": "a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3",
+    "first_name": "123",
+    "last_name": "213",
+    "folder": "user_data\\testtt"
+  },
+  "tesetttt": {
+    "password_hash": "a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3",
+    "first_name": "123",
+    "last_name": "123",
+    "folder": "user_data\\tesetttt"
+  },
+  "gettt": {
+    "password_hash": "a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3",
+    "first_name": "123",
+    "last_name": "123",
+    "folder": "user_data\\gettt"
   }
 }

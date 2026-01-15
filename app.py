@@ -265,6 +265,12 @@ with gr.Blocks(title="LLM Agent for Rural Health") as demo:
                     interactive=False,
                     visible=True,
                 )
+                cst_box = gr.Textbox(
+                    label="Current CST (for debugging only)",
+                    lines=12,
+                    interactive=False,
+                    visible=True,
+                )
 
             # History
             with gr.Column(visible=False) as page_history:
@@ -461,7 +467,6 @@ with gr.Blocks(title="LLM Agent for Rural Health") as demo:
         ],
     )
 
-    # 打开 Goals tab 时自动加载最近目标 + 反馈 + 状态
     btn_goals.click(
         lambda: switch_page("goals"),
         inputs=None,
@@ -574,7 +579,7 @@ with gr.Blocks(title="LLM Agent for Rural Health") as demo:
         ],
     )
 
-    # 结束对话：先调用 end_chat_action，再立即刷新 Goals 里的 summary/feedback
+    # dialogue end: call end_chat_action，then refresh summary/feedback in Goals 
     end_chat_btn.click(
         end_chat_action,
         inputs=[user_state, chat_history_state, chat_meta_state],
@@ -595,7 +600,7 @@ with gr.Blocks(title="LLM Agent for Rural Health") as demo:
     chat_send_btn.click(
         chat_send_action,
         inputs=[chat_input, chat_history_state, user_state, user_info_state, chat_meta_state],
-        outputs=[chat_history_state, chat_status, chatbot, system_prompt_box],
+        outputs=[chat_history_state, chat_status, chatbot, system_prompt_box, cst_box],
     )
 
     # Chat history
@@ -611,7 +616,7 @@ with gr.Blocks(title="LLM Agent for Rural Health") as demo:
         outputs=[history_chatbot, history_status],
     )
 
-    # Goals: 手动加载 / 提交反馈
+    # Goals: manually submit load / save
     load_goal_btn.click(
         load_goal_summary_for_ui,
         inputs=[user_state],

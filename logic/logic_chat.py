@@ -10,6 +10,14 @@ from llm_stub import llm_reply_stub
 
 from agents.chat import chat_agent  
 from agents.extractor import extractor_agent
+from agents.generator import (
+    apply_delta_text,
+    build_initial_cst,
+    ensure_fixed_state_shape,
+    generate_prompt_patch,
+    state_to_text,
+)
+from agents.prompt_chat import COACH_SYSTEM_PROMPT_1ST_WEEK, COACH_SYSTEM_PROMPT_V1
 from .logic_progress import load_progress_data
 
 
@@ -21,6 +29,138 @@ def get_chats_dir(username: str) -> str:
 
 def get_chats_index_path(username: str) -> str:
     return os.path.join(get_chats_dir(username), "chats_index.json")
+
+
+def get_cst_dir(username: str) -> str:
+    directory = os.path.join(get_user_dir(username), "coach_state_tracker")
+    os.makedirs(directory, exist_ok=True)
+    return directory
+
+
+def get_cst_filename(date_str: str, index: int) -> str:
+    return f"{date_str}_cst{index}.json"
+
+
+def load_cst(username: str, date_str: str, index: int) -> Dict[str, Any]:
+    path = os.path.join(get_cst_dir(username), get_cst_filename(date_str, index))
+    return load_json(path, {})
+
+
+def save_cst(username: str, date_str: str, index: int, cst: Dict[str, Any]) -> None:
+    path = os.path.join(get_cst_dir(username), get_cst_filename(date_str, index))
+    save_json(path, cst)
+
+
+def get_session_reports_dir(username: str) -> str:
+    directory = os.path.join(get_user_dir(username), "session_report")
+    os.makedirs(directory, exist_ok=True)
+    return directory
+
+
+def get_session_report_filename(date_str: str, index: int) -> str:
+    return f"{date_str}_session_report{index}.json"
+
+
+def save_session_report(
+    username: str,
+    meta: Dict[str, Any],
+    summary_text: str,
+) -> None:
+    if not meta.get("date") or not meta.get("index"):
+        return
+    data = {
+        "date": meta["date"],
+        "index": meta["index"],
+        "summary": summary_text,
+    }
+    path = os.path.join(
+        get_session_reports_dir(username),
+        get_session_report_filename(meta["date"], meta["index"]),
+    )
+    save_json(path, data)
+
+
+def _get_mode() -> int:
+    try:
+        return int(os.getenv("SYSTEM_MODE", "0"))
+    except Exception:
+        return 0
+
+
+def _build_history_text(chat_history_state: List[Tuple[str, str]]) -> str:
+    lines: List[str] = []
+    for user_text, assistant_text in chat_history_state:
+        lines.append(f"User: {str(user_text).strip()}")
+        lines.append(f"Agent: {str(assistant_text).strip()}")
+    return "\n".join(lines).strip()
+
+
+def _parse_session_key(filename: str) -> Tuple[datetime, int]:
+    if not filename.endswith(".json"):
+        return datetime.min, 0
+    base = filename[:-5]
+    if "_session_report" in base:
+        date_part, _, idx_part = base.partition("_session_report")
+    elif "_cst" in base:
+        date_part, _, idx_part = base.partition("_cst")
+    else:
+        return datetime.min, 0
+    try:
+        date_val = datetime.strptime(date_part, "%Y-%m-%d")
+    except Exception:
+        return datetime.min, 0
+    try:
+        idx_val = int(idx_part)
+    except Exception:
+        idx_val = 0
+    return date_val, idx_val
+
+
+def load_latest_session_report(username: str) -> str:
+    report_dir = get_session_reports_dir(username)
+    try:
+        files = [f for f in os.listdir(report_dir) if f.endswith(".json")]
+    except Exception:
+        return ""
+    if not files:
+        return ""
+    files.sort(key=lambda f: _parse_session_key(f))
+    latest_path = os.path.join(report_dir, files[-1])
+    data = load_json(latest_path, {})
+    return data.get("summary", "") or ""
+
+
+def load_latest_cst(username: str) -> Dict[str, Any]:
+    cst_dir = get_cst_dir(username)
+    try:
+        files = [f for f in os.listdir(cst_dir) if f.endswith(".json")]
+    except Exception:
+        return {}
+    if not files:
+        return {}
+    files.sort(key=lambda f: _parse_session_key(f))
+    latest_path = os.path.join(cst_dir, files[-1])
+    return load_json(latest_path, {})
+
+
+def _is_first_turn_first_session(
+    username: str,
+    date_str: str | None,
+    session_idx: int | None,
+    chat_history_state: List[Tuple[str, str]],
+) -> bool:
+    if not date_str or not session_idx:
+        return False
+    if chat_history_state:
+        return False
+    if session_idx != 1:
+        return False
+    index = load_chats_index(username)
+    convs = index.get("conversations", [])
+    for conv in convs:
+        if conv.get("date") != date_str or conv.get("index") != session_idx:
+            return False
+    return True
 
 
 def load_chats_index(username: str) -> Dict[str, Any]:
@@ -118,6 +258,17 @@ def start_new_chat_action(user_state, chat_history_state, chat_meta_state):
 
     new_history: List[Tuple[str, str]] = []
     save_conversation(username, meta, new_history)
+
+    user_profile = load_json(get_user_file(username, "profile.json"), {})
+    _plan_day, week_idx, day_in_week = compute_plan_position(user_profile, today)
+    week_day = f"Week {week_idx}, Day {day_in_week}"
+    cst_state = load_latest_cst(username)
+    if cst_state:
+        cst_state = ensure_fixed_state_shape(cst_state)
+        cst_state["session"]["week_day"] = week_day
+    else:
+        cst_state = build_initial_cst(week_day)
+    save_cst(username, today, new_idx, cst_state)
 
     msg = f"Started a new conversation: {today}, session {new_idx}."
 
@@ -242,10 +393,26 @@ def end_chat_action(user_state, chat_history_state, chat_meta_state):
 
     save_conversation(username, new_meta, chat_history_state)
 
-    msg = (
-        f"Conversation ended: {date_str}, session {idx}. "
-        "Next new conversation will use session index +1."
-    )
+    mode = _get_mode()
+    if mode in {0, 1}:
+        try:
+            report_text = extractor_agent.gen_weekly_report(chat_history_state)
+            save_session_report(username, new_meta, report_text)
+        except Exception as e:
+            msg = (
+                f"Conversation ended: {date_str}, session {idx}. "
+                f"Session report generation failed: {e}"
+            )
+        else:
+            msg = (
+                f"Conversation ended: {date_str}, session {idx}. "
+                "Next new conversation will use session index +1."
+            )
+    else:
+        msg = (
+            f"Conversation ended: {date_str}, session {idx}. "
+            "Next new conversation will use session index +1."
+        )
 
     return (
         new_meta,
@@ -272,16 +439,17 @@ def chat_send_action(
     - Call the extractor agent to update today's goal summary in goals.json.
     """
     if not user_state.get("logged_in"):
-        return chat_history_state, "Please log in first.", chat_history_state
+        return chat_history_state, "Please log in first.", chat_history_state, ""
 
     if not user_input:
-        return chat_history_state, "", chat_history_state
+        return chat_history_state, "", chat_history_state, ""
 
     if not chat_meta_state.get("active"):
         return (
             chat_history_state,
             "Click 'Start new conversation' or 'Continue unfinished conversation' first.",
             chat_history_state,
+            "",
         )
 
     username = user_state.get("username") or "user"
@@ -290,8 +458,6 @@ def chat_send_action(
     goals_data = load_goals_data(username)
     today = today_str()
     goals_entry = goals_data.get(today, {})
-    feedback = goals_entry.get("feedback", "")
-    
     summary_text = goals_entry.get("summary", "") or ""
     feedback_text = goals_entry.get("feedback", "") or ""
     
@@ -328,11 +494,102 @@ def chat_send_action(
     
     # goals_context = "\n"
 
+    mode = _get_mode()
+    previous_agent = None
+    if chat_history_state:
+        _, last_assistant = chat_history_state[-1]
+        previous_agent = last_assistant
+
+    extractor_output = ""
+    status_msg = ""
+    if mode == 0:
+        try:
+            extractor_output = extractor_agent.extract_summary_json(previous_agent, user_input)
+        except Exception as e:
+            status_msg = (
+                "Message sent, but extractor failed to update goals: "
+                f"{e}"
+            )
+
+    date_str = chat_meta_state.get("date")
+    session_idx = chat_meta_state.get("index")
+    prompt_patch = ""
+    dynamic_prompt = ""
+    first_turn = not chat_history_state
+    base_prompt = COACH_SYSTEM_PROMPT_V1
+    cst_text = ""
+    if date_str and session_idx and mode == 0:
+        try:
+            cst_state = load_cst(username, date_str, session_idx)
+            if not cst_state:
+                cst_state = load_latest_cst(username)
+                if user_info_state:
+                    _plan_day, week_idx, day_in_week = compute_plan_position(user_info_state, today)
+                    week_day = f"Week {week_idx}, Day {day_in_week}"
+                else:
+                    week_day = today
+                if cst_state:
+                    cst_state = ensure_fixed_state_shape(cst_state)
+                    cst_state["session"]["week_day"] = week_day
+                else:
+                    cst_state = build_initial_cst(week_day)
+            if user_info_state:
+                _plan_day, week_idx, day_in_week = compute_plan_position(user_info_state, today)
+                cst_state["session"]["week_day"] = f"Week {week_idx}, Day {day_in_week}"
+            else:
+                cst_state["session"]["week_day"] = today
+            if extractor_output:
+                cst_state = apply_delta_text(cst_state, extractor_output)
+            prompt_patch = generate_prompt_patch(cst_state)
+            save_cst(username, date_str, session_idx, cst_state)
+            cst_text = state_to_text(cst_state)
+        except Exception as e:
+            if not status_msg:
+                status_msg = f"Message sent, but CST update failed: {e}"
+
+    if _is_first_turn_first_session(username, date_str, session_idx, chat_history_state):
+        base_prompt = COACH_SYSTEM_PROMPT_1ST_WEEK
+        dynamic_prompt = ""
+    elif mode == 1:
+        if first_turn:
+            dynamic_prompt = load_latest_session_report(username)
+        else:
+            dynamic_prompt = _build_history_text(chat_history_state)
+    elif mode == 0:
+        if first_turn:
+            dynamic_prompt = load_latest_session_report(username)
+        else:
+            dynamic_prompt = prompt_patch
+    else:
+        dynamic_prompt = ""
+
+    if mode == 3:
+        base_prompt = ""
+
     system_prompt = chat_agent.build_system_prompt_for_ui(
-        user_state, user_info_state, goals_context
+        user_state,
+        user_info_state,
+        goals_context,
+        prompt_patch=dynamic_prompt,
+        base_prompt=base_prompt,
     )
 
-    reply = llm_reply_stub(user_input, user_state, user_info_state, goals_context)
+    llm_user_input = user_input
+    if mode in {2, 3}:
+        history_text = _build_history_text(chat_history_state)
+        if history_text:
+            llm_user_input = history_text + "\nUser: " + user_input
+        else:
+            llm_user_input = user_input
+
+    reply = llm_reply_stub(
+        llm_user_input,
+        user_state,
+        user_info_state,
+        goals_context,
+        prompt_patch=dynamic_prompt,
+        base_prompt=base_prompt,
+    )
 
     # 2) Update in-memory chat history and save this conversation
     new_history = chat_history_state + [(user_input, reply)]
@@ -341,25 +598,10 @@ def chat_send_action(
     meta["username"] = username
     save_conversation(username, meta, new_history)
 
-    # 3) Build a snippet for the extractor agent (Agent B)
-    prev_q = None
-    if chat_history_state:
-        # Take the last assistant message as the previous coach question/statement
-        _last_user, last_assistant = chat_history_state[-1]
-        prev_q = last_assistant
-
-    kb_input_lines: List[str] = []
-    if prev_q:
-        kb_input_lines.append(f"Coach_previous_question: {prev_q}")
-    kb_input_lines.append(f"User_answer: {user_input}")
-    kb_input_lines.append(f"Coach_current_reply: {reply}")
-    kb_input_text = "\n".join(kb_input_lines)
-
     # 4) Call the extractor and store today's summary in goals.json
-    status_msg = ""
     try:
-        summary_json_str = extractor_agent.extract_summary_json(kb_input_text)
-        save_extractor_summary(username, today, summary_json_str)
+        if extractor_output:
+            save_extractor_summary(username, today, extractor_output)
     except Exception as e:
         # Do not break the chat if extractor fails; just surface a status message.
         status_msg = (
@@ -368,7 +610,7 @@ def chat_send_action(
         )
 
     # Chatbot UI uses tuples, so we return new_history for both internal state and display.
-    return new_history, status_msg, new_history, system_prompt
+    return new_history, status_msg, new_history, system_prompt, cst_text
 
 
 def refresh_history_list_action(user_state):
