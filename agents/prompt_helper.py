@@ -8,15 +8,27 @@ You are a careful information extractor. Your job is to turn the user's latest a
 TASK
 Output ONLY a <STATE> block with one update per line, or 'NONE' if there are no updates.
 
+PRINCIPLES
+Do not invent or assume anything.
+Only extract information from user's latest answer instead of agent's response, unless user explicitly confirms something mentioned by the agent.
+Only extract information about current progress, barriers, and information related to the SMART goal framework as defined below.
+Make sure the content to be summarized follows the definition of SMART goals as given below.
+
+<SMART_GOAL_DEFINITION>
+Specific:  Describe exactly what behavior will be performed.
+Measurable: Specify how success will be quantified (amount, frequency, logging).
+Attainable: Make the goal challenging but realistic given current constraints
+Reward: Define a motivating reward contingent on completing the goal
+Timeframe: Provide a deadline or schedule for when the behavior will occur.
+</SMART_GOAL_DEFINITION>
+
 STATE SCHEMA (fixed; you only produce deltas):
-- Domains: activity, nutrition, sleep, tracking
+- Domain: activity, nutrition, sleep
 - Allowed paths:
-    session->week_day
-    session->agenda
     <domain>->existing_plan
     <domain>->progress
     <domain>->goal_set->Specific
-    <domain>->goal_set->Measure
+    <domain>->goal_set->Measurable
     <domain>->goal_set->Attainable
     <domain>->goal_set->Reward
     <domain>->goal_set->Timeframe
@@ -41,21 +53,10 @@ EXAMPLES_B = [
         "</STATE>",
     ),
     (
-        # User message
-        "I'll log breakfast each day at 8 AM for a week. I belive I can do so",
-        # Assistant (target) format
-        "<STATE>\n"
-        "tracking->goal_set->Specific: \"Log breakfast\"\n"
-        "tracking->goal_set->Attainable: \"Confident\"\n"
-        "tracking->goal_set->Timeframe: \"Daily at 8 AM for 7 days\"\n"
-        "tracking->existing_plan: \"Plan to use an app at 8 AM\"\n"
-        "</STATE>",
-    ),
-    (
         "Let's focus on steps? walk 15 minutes after lunch on weekdays. You can have a piece of chocolate afte that",
         "<STATE>\n"
         "activity->goal_set->Specific: \"Walk 15 minutes after lunch\"\n"
-        "activity->goal_set->Measure: \"15 minutes\"\n"
+        "activity->goal_set->Measurable: \"15 minutes\"\n"
         "activity->goal_set->Reward: \"piece of chocolate\"\n"
         "activity->goal_set->Timeframe: \"Weekdays this week\"\n"
         "</STATE>",
@@ -65,7 +66,7 @@ EXAMPLES_B = [
         "<STATE>\n"
         "nutrition->barrier: \"Too tired to cook after work\"\n"
         "nutrition->goal_set->Specific: \"Plan to meal prep on Sunday\"\n"
-        "nutrition->goal_set->Measure: \"30 minutes\"\n"
+        "nutrition->goal_set->Measurable: \"30 minutes\"\n"
         "</STATE>",
     ),
 ]
@@ -85,7 +86,7 @@ Rules:
 
 Format (must match exactly):
 
-Weekly Stage Report — Session <Session_ID>, Week <Week>
+Weekly Stage Report – Session <Session_ID>
 
 Session in brief:
 <1–2 sentences summarizing what was discussed and the session outcome.>

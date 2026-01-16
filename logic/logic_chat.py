@@ -4,7 +4,7 @@ from typing import Dict, Any, List, Tuple
 
 import gradio as gr
 
-from storage import get_user_dir, get_user_file, load_json, save_json, today_str, compute_plan_position
+from storage import get_user_dir, get_user_file, load_json, save_json, today_str
 from .logic_goals import load_goals_data, save_extractor_summary
 from llm_stub import llm_reply_stub
 
@@ -87,9 +87,13 @@ def _get_mode() -> int:
         return 0
 
 
-def _build_history_text(chat_history_state: List[Tuple[str, str]]) -> str:
+def _build_history_text(
+    chat_history_state: List[Tuple[str, str]],
+    last_n: int | None = None,
+) -> str:
     lines: List[str] = []
-    for user_text, assistant_text in chat_history_state:
+    turns = chat_history_state if last_n is None else chat_history_state[-last_n:]
+    for user_text, assistant_text in turns:
         lines.append(f"User: {str(user_text).strip()}")
         lines.append(f"Agent: {str(assistant_text).strip()}")
     return "\n".join(lines).strip()
@@ -128,6 +132,25 @@ def load_latest_session_report(username: str) -> str:
     latest_path = os.path.join(report_dir, files[-1])
     data = load_json(latest_path, {})
     return data.get("summary", "") or ""
+
+
+def load_all_session_reports(username: str) -> str:
+    report_dir = get_session_reports_dir(username)
+    try:
+        files = [f for f in os.listdir(report_dir) if f.endswith(".json")]
+    except Exception:
+        return ""
+    if not files:
+        return ""
+    files.sort(key=lambda f: _parse_session_key(f))
+    lines: List[str] = []
+    for filename in files:
+        date_val, idx_val = _parse_session_key(filename)
+        data = load_json(os.path.join(report_dir, filename), {})
+        summary = data.get("summary", "") or ""
+        if summary:
+            lines.append(f"Session {idx_val} ({date_val.date()}): {summary}")
+    return "\n".join(lines).strip()
 
 
 def load_latest_cst(username: str) -> Dict[str, Any]:
@@ -259,15 +282,13 @@ def start_new_chat_action(user_state, chat_history_state, chat_meta_state):
     new_history: List[Tuple[str, str]] = []
     save_conversation(username, meta, new_history)
 
-    user_profile = load_json(get_user_file(username, "profile.json"), {})
-    _plan_day, week_idx, day_in_week = compute_plan_position(user_profile, today)
-    week_day = f"Week {week_idx}, Day {day_in_week}"
+    session_timestamp = f"{today}_session{new_idx}"
     cst_state = load_latest_cst(username)
     if cst_state:
         cst_state = ensure_fixed_state_shape(cst_state)
-        cst_state["session"]["week_day"] = week_day
+        cst_state["session"]["session_timestamp"] = session_timestamp
     else:
-        cst_state = build_initial_cst(week_day)
+        cst_state = build_initial_cst(session_timestamp)
     save_cst(username, today, new_idx, cst_state)
 
     msg = f"Started a new conversation: {today}, session {new_idx}."
@@ -461,15 +482,10 @@ def chat_send_action(
     summary_text = goals_entry.get("summary", "") or ""
     feedback_text = goals_entry.get("feedback", "") or ""
     
-    plan_day, week_idx, day_in_week = compute_plan_position(user_info_state, today)
-    
     progress_data = load_progress_data(username)
     progress_entry = {}
     if today in progress_data:
         progress_entry = progress_data[today]
-    elif plan_day is not None:
-        key_by_week_day = f"week_{week_idx}_day_{day_in_week}"
-        progress_entry = progress_data.get(key_by_week_day, {})
      
     goals_context_parts: List[str] = []
     # goals_context_parts.append(f"- Week: {week_idx}, Day {day_in_week}")
@@ -514,33 +530,31 @@ def chat_send_action(
     date_str = chat_meta_state.get("date")
     session_idx = chat_meta_state.get("index")
     prompt_patch = ""
-    dynamic_prompt = ""
     first_turn = not chat_history_state
     base_prompt = COACH_SYSTEM_PROMPT_V1
+    include_fewshot = mode != 3
     cst_text = ""
+    meta_text = f"Meta: user={username}, session={session_idx}"
     if date_str and session_idx and mode == 0:
         try:
             cst_state = load_cst(username, date_str, session_idx)
             if not cst_state:
                 cst_state = load_latest_cst(username)
-                if user_info_state:
-                    _plan_day, week_idx, day_in_week = compute_plan_position(user_info_state, today)
-                    week_day = f"Week {week_idx}, Day {day_in_week}"
-                else:
-                    week_day = today
+                session_timestamp = f"{date_str}_session{session_idx}"
                 if cst_state:
                     cst_state = ensure_fixed_state_shape(cst_state)
-                    cst_state["session"]["week_day"] = week_day
+                    cst_state["session"]["session_timestamp"] = session_timestamp
                 else:
-                    cst_state = build_initial_cst(week_day)
-            if user_info_state:
-                _plan_day, week_idx, day_in_week = compute_plan_position(user_info_state, today)
-                cst_state["session"]["week_day"] = f"Week {week_idx}, Day {day_in_week}"
-            else:
-                cst_state["session"]["week_day"] = today
+                    cst_state = build_initial_cst(session_timestamp)
+            cst_state["session"]["session_timestamp"] = f"{date_str}_session{session_idx}"
             if extractor_output:
                 cst_state = apply_delta_text(cst_state, extractor_output)
-            prompt_patch = generate_prompt_patch(cst_state)
+            history_for_patch = _build_history_text(chat_history_state, last_n=5)
+            prompt_patch = generate_prompt_patch(
+                cst_state,
+                chat_history_text=history_for_patch,
+                meta_text=meta_text,
+            )
             save_cst(username, date_str, session_idx, cst_state)
             cst_text = state_to_text(cst_state)
         except Exception as e:
@@ -549,46 +563,65 @@ def chat_send_action(
 
     if _is_first_turn_first_session(username, date_str, session_idx, chat_history_state):
         base_prompt = COACH_SYSTEM_PROMPT_1ST_WEEK
-        dynamic_prompt = ""
+        prompt_patch = ""
     elif mode == 1:
         if first_turn:
-            dynamic_prompt = load_latest_session_report(username)
+            prompt_patch = load_latest_session_report(username)
         else:
-            dynamic_prompt = _build_history_text(chat_history_state)
+            prompt_patch = ""
     elif mode == 0:
         if first_turn:
-            dynamic_prompt = load_latest_session_report(username)
-        else:
-            dynamic_prompt = prompt_patch
+            prompt_patch = load_latest_session_report(username)
     else:
-        dynamic_prompt = ""
+        prompt_patch = ""
 
+    base_prompt = meta_text + "\n\n" + (base_prompt or "")
     if mode == 3:
-        base_prompt = ""
+        base_prompt = meta_text
+
+    memory_text = ""
+    if mode in {0, 1}:
+        reports_text = load_all_session_reports(username)
+        if reports_text:
+            memory_text = "Session reports:\n" + reports_text
+
+    recent_history_text = ""
+    user_input_text = user_input
+    if mode == 0:
+        recent_history_text = _build_history_text(chat_history_state, last_n=5)
+        if recent_history_text:
+            recent_history_text = "Recent chat history:\n" + recent_history_text
+    elif mode == 1:
+        recent_history_text = _build_history_text(chat_history_state, last_n=None)
+        if recent_history_text:
+            recent_history_text = "Recent chat history:\n" + recent_history_text
+    elif mode in {2, 3}:
+        history_text = _build_history_text(chat_history_state, last_n=None)
+        if history_text:
+            recent_history_text = history_text + "\nUser: " + user_input
+        else:
+            recent_history_text = "User: " + user_input
+        user_input_text = ""
 
     system_prompt = chat_agent.build_system_prompt_for_ui(
         user_state,
         user_info_state,
         goals_context,
-        prompt_patch=dynamic_prompt,
+        prompt_patch=prompt_patch,
         base_prompt=base_prompt,
+        include_fewshot=include_fewshot,
     )
 
-    llm_user_input = user_input
-    if mode in {2, 3}:
-        history_text = _build_history_text(chat_history_state)
-        if history_text:
-            llm_user_input = history_text + "\nUser: " + user_input
-        else:
-            llm_user_input = user_input
-
     reply = llm_reply_stub(
-        llm_user_input,
+        user_input_text,
         user_state,
         user_info_state,
         goals_context,
-        prompt_patch=dynamic_prompt,
+        prompt_patch=prompt_patch,
         base_prompt=base_prompt,
+        memory_text=memory_text,
+        recent_history_text=recent_history_text,
+        include_fewshot=include_fewshot,
     )
 
     # 2) Update in-memory chat history and save this conversation

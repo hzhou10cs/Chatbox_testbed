@@ -25,14 +25,13 @@ generator_agent = GeneratorAgent()
 
 # ---------------- Fixed schema ----------------
 
-ALLOWED_DOMAINS = {"activity", "nutrition", "sleep", "tracking"}
+ALLOWED_DOMAINS = {"activity", "nutrition", "sleep"}
 ALLOWED_GOAL_KEYS = {"Specific", "Measurable", "Attainable", "Reward", "Timeframe"}
 ALLOWED_LEAVES = {
-    "session": {"week_day", "agenda"},
+    "session": {"session_timestamp", "agenda"},
     "activity": {"existing_plan", "progress", "barrier", "goal_set"},
     "nutrition": {"existing_plan", "progress", "barrier", "goal_set"},
     "sleep": {"existing_plan", "progress", "barrier", "goal_set"},
-    "tracking": {"existing_plan", "progress", "barrier", "goal_set"},
 }
 
 
@@ -91,10 +90,10 @@ def _ensure_domain(d: Optional[Dict]) -> Dict:
 def ensure_fixed_state_shape(state: Optional[Dict]) -> Dict:
     st = dict(state or {})
     st.setdefault("session", {})
-    st["session"].setdefault("week_day", "")
+    st["session"].setdefault("session_timestamp", "")
     st["session"].setdefault(
         "agenda",
-        "Choose one domain to focus on: activity, meal/nutrition, sleep, or tracking habits",
+        "Choose one domain to focus on: activity, meal/nutrition, or sleep.",
     )
     st.setdefault("allowed_domains", sorted(ALLOWED_DOMAINS))
     for dom in ALLOWED_DOMAINS:
@@ -136,7 +135,7 @@ def _sanitize_updates_text(body: str) -> str:
 
     s = re.sub(r"\bgoa?l[_\-\s]*set\b", "goal_set", s, flags=re.IGNORECASE)
     s = re.sub(r"\bexisting[_\-\s]*plan\b", "existing_plan", s, flags=re.IGNORECASE)
-    s = re.sub(r"\bweek[_\-\s]*day\b", "week_day", s, flags=re.IGNORECASE)
+    s = re.sub(r"\bsession[_\-\s]*timestamp\b", "session_timestamp", s, flags=re.IGNORECASE)
     s = re.sub(r"\bbarriers\b", "barrier", s, flags=re.IGNORECASE)
     for k in ALLOWED_GOAL_KEYS:
         s = re.sub(fr"\b{k}\b", k, s, flags=re.IGNORECASE)
@@ -225,7 +224,7 @@ def apply_deltas(state: Optional[Dict], deltas: List[Tuple[List[str], str]]) -> 
                 node[key] = {}
             node = node[key]
         leaf = path[-1]
-        if path[0] == "session" and leaf in {"agenda", "week_day"}:
+        if path[0] == "session" and leaf in {"agenda", "session_timestamp"}:
             node[leaf] = value
             continue
         if path[0] in ALLOWED_DOMAINS:
@@ -247,27 +246,46 @@ def state_to_text(state: Optional[Dict]) -> str:
     return json.dumps(ensure_fixed_state_shape(state), ensure_ascii=False, indent=2)
 
 
-def build_initial_cst(week_day: str) -> Dict:
+def build_initial_cst(session_timestamp: str) -> Dict:
     state = ensure_fixed_state_shape({})
-    state["session"]["week_day"] = week_day
+    state["session"]["session_timestamp"] = session_timestamp
     return state
 
 
-def build_patch_messages(cst_state: Dict) -> List[Dict[str, str]]:
+def build_patch_messages(
+    cst_state: Dict,
+    chat_history_text: str | None = None,
+    meta_text: str | None = None,
+) -> List[Dict[str, str]]:
     cst_json = json.dumps(cst_state, ensure_ascii=False, indent=2)
+    history_block = ""
+    if chat_history_text:
+        history_block = "Current session chat history:\n" + chat_history_text.strip() + "\n\n"
+    system_text = GENERATOR_PROMPT_V1.strip()
+    if meta_text:
+        system_text = meta_text.strip() + "\n\n" + system_text
     user_text = (
         "Generate a prompt patch to guide the Coach Agent's next response\n"
+        f"{history_block}"
         "CST (JSON):\n"
         f"{cst_json}"
     )
     return [
-        {"role": "system", "content": GENERATOR_PROMPT_V1.strip()},
+        {"role": "system", "content": system_text},
         {"role": "user", "content": user_text},
     ]
 
 
-def generate_prompt_patch(cst_state: Dict) -> str:
+def generate_prompt_patch(
+    cst_state: Dict,
+    chat_history_text: str | None = None,
+    meta_text: str | None = None,
+) -> str:
     if UI_TEST_MODE:
         return ""
-    messages = build_patch_messages(cst_state)
+    messages = build_patch_messages(
+        cst_state,
+        chat_history_text=chat_history_text,
+        meta_text=meta_text,
+    )
     return generator_agent.generate(messages)

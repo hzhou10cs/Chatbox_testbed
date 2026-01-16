@@ -20,6 +20,9 @@ def llm_reply_stub(
     goals_feedback: str,
     prompt_patch: str | None = None,
     base_prompt: str | None = None,
+    memory_text: str | None = None,
+    recent_history_text: str | None = None,
+    include_fewshot: bool = True,
 ) -> str:
     """
     Backward-compatible wrapper used by logic_chat.py.
@@ -34,5 +37,8 @@ def llm_reply_stub(
         goals_feedback,
         prompt_patch=prompt_patch,
         base_prompt=base_prompt,
+        memory_text=memory_text,
+        recent_history_text=recent_history_text,
+        include_fewshot=include_fewshot,
     )
 

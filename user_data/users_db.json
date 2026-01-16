@@ -46,5 +46,35 @@
     "first_name": "123",
     "last_name": "123",
     "folder": "user_data\\gettt"
+  },
+  "newuser": {
+    "password_hash": "a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3",
+    "first_name": "123",
+    "last_name": "123",
+    "folder": "user_data\\newuser"
+  },
+  "user2": {
+    "password_hash": "a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3",
+    "first_name": "123",
+    "last_name": "123",
+    "folder": "user_data\\user2"
+  },
+  "user4": {
+    "password_hash": "a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3",
+    "first_name": "123",
+    "last_name": "123",
+    "folder": "user_data\\user4"
+  },
+  "user5": {
+    "password_hash": "a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3",
+    "first_name": "123",
+    "last_name": "123",
+    "folder": "user_data\\user5"
+  },
+  "user6": {
+    "password_hash": "a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3",
+    "first_name": "hansong",
+    "last_name": "zhou",
+    "folder": "user_data\\user6"
   }
 }

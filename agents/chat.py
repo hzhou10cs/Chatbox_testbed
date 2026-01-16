@@ -22,7 +22,7 @@ from llm_config import (
     CHAT_MODEL_NAME,
 )
 
-from .prompt_chat import COACH_SYSTEM_PROMPT_V1
+from .prompt_chat import COACH_SYSTEM_PROMPT_FEWSHOT, COACH_SYSTEM_PROMPT_V1
 
 class ChatAgent:
     """
@@ -40,19 +40,21 @@ class ChatAgent:
     def __init__(self):
         self.client = OpenAIStyleClient(LLM_BASE_URL, CHAT_MODEL_NAME)
 
-    def _build_system_prompt(
-        self, 
-        user_state: dict,
-        user_info_state: dict | None, 
-        addition_progress: str,
-        prompt_patch: str | None = None,
-        base_prompt: str | None = None,
-        ) -> str:
-        system_content = base_prompt or COACH_SYSTEM_PROMPT_V1
+    def _build_system_messages(
+        self,
+        prompt_patch: str | None,
+        base_prompt: str | None,
+        include_fewshot: bool,
+    ) -> List[Dict[str, str]]:
+        messages: List[Dict[str, str]] = []
+        base_content = (base_prompt or COACH_SYSTEM_PROMPT_V1).strip()
+        if base_content:
+            messages.append({"role": "system", "content": base_content})
         if prompt_patch:
-            system_content += "\n\nPrompt patch:\n" + prompt_patch.strip()
-
-        return system_content
+            messages.append({"role": "system", "content": prompt_patch.strip()})
+        if include_fewshot and COACH_SYSTEM_PROMPT_FEWSHOT.strip():
+            messages.append({"role": "system", "content": COACH_SYSTEM_PROMPT_FEWSHOT.strip()})
+        return messages
     
     def build_system_prompt_for_ui(
         self,
@@ -61,15 +63,15 @@ class ChatAgent:
         addition_progress: str,
         prompt_patch: str | None = None,
         base_prompt: str | None = None,
+        include_fewshot: bool = True,
     ) -> str:
         """Return the full system prompt that will be sent to the model."""
-        return self._build_system_prompt(
-            user_state,
-            user_info_state,
-            addition_progress,
+        system_messages = self._build_system_messages(
             prompt_patch=prompt_patch,
             base_prompt=base_prompt,
+            include_fewshot=include_fewshot,
         )
+        return "\n\n---\n\n".join(m["content"] for m in system_messages)
 
     def build_messages(
         self,
@@ -79,18 +81,21 @@ class ChatAgent:
         addition_progress: str,
         prompt_patch: str | None = None,
         base_prompt: str | None = None,
+        memory_text: str | None = None,
+        recent_history_text: str | None = None,
+        include_fewshot: bool = True,
     ) -> List[Dict[str, str]]:
-        system_content = self._build_system_prompt(
-            user_state,
-            user_info_state,
-            addition_progress,
+        messages = self._build_system_messages(
             prompt_patch=prompt_patch,
             base_prompt=base_prompt,
+            include_fewshot=include_fewshot,
         )
-        messages: List[Dict[str, str]] = [
-            {"role": "system", "content": system_content},
-            {"role": "user", "content": user_input},
-        ]
+        if memory_text:
+            messages.append({"role": "user", "content": memory_text})
+        if recent_history_text:
+            messages.append({"role": "user", "content": recent_history_text})
+        if user_input.strip():
+            messages.append({"role": "user", "content": user_input})
         return messages
 
     def reply(
@@ -101,6 +106,9 @@ class ChatAgent:
         addition_progress: str,
         prompt_patch: str | None = None,
         base_prompt: str | None = None,
+        memory_text: str | None = None,
+        recent_history_text: str | None = None,
+        include_fewshot: bool = True,
     ) -> str:
         """Main entry point used by business logic."""
         username = user_state.get("username") or "user"
@@ -121,6 +129,9 @@ class ChatAgent:
             addition_progress,
             prompt_patch=prompt_patch,
             base_prompt=base_prompt,
+            memory_text=memory_text,
+            recent_history_text=recent_history_text,
+            include_fewshot=include_fewshot,
         )
 
         try:

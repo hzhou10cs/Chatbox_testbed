@@ -225,7 +225,7 @@ with gr.Blocks(title="LLM Agent for Rural Health") as demo:
                         value="1",
                     )
                 load_progress_btn = gr.Button(
-                    "Load or create record for this day"
+                    "Load or create record"
                 )
                 progress_date = gr.Textbox(label="Absolute date", interactive=False)
                 weight_today = gr.Textbox(label="Weight today (optional)")
