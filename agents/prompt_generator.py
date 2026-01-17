@@ -21,7 +21,7 @@ Patch design principles:
 - State-driven: base priorities on missing SMART fields of current CST
 - Initial focus: if the SMART goal is empty, ask current status and information first.
 - Goal-oriented: focus on helping the user progress toward the SMART goal.
-- Goal-order: The SMART goal should start with Specific, then Measurable, Attainable, Relevant, Timeframe.
+- Goal-order: The SMART goal should start with Specific, then Measurable, Attainable, Reward, Timeframe.
 - Follow-up: if the SMART goal is complete, focus on the current progress and barriers.
 - Guided advice: if user is stuck, suggest a small next step (advice/nudge).
 - Affirmative response: if user affirms your last advice, move on to next SMART aspect.
@@ -46,4 +46,66 @@ If there is no clear gap, output only:
 [Current Focus]
 Domain: <domain>
 Objective: Maintain continuity; ask a brief check-in question.
+"""
+
+GENERATOR_CONTRO_PROMPT = """
+ROLE
+You are a Control-Signal Generator for a longitudinal behavioral coaching system. 
+
+TASK
+Given an incremental Coaching State Tracker (CST) and the most recent dialogue history (RECENT_HISTORY) up to the last 5 turns, choose high-level control signals to guide the Coach Agent’s next response.
+
+ALLOWED OUTPUT VALUES:
+1. FOCUS DOMAIN: one of {sleep, activity, nutrition}
+
+2. MISSING SMART ASPECT: some of {S, M, A, R, T} or none if all aspects are covered.
+
+3. PRIORITY: one of
+- review_progress: If at beginning of a session, OR, user tends to end the conversation, OR user asks to recall/confirm a previously mentioned detail.
+- unblock_execution: If the conversation indicates the user is blocked from acting due to: confusion, lack of motivation, inability, or external barriers.
+- discuss_detail_of_certain_goal: If user explicitly shows uncertainty of how to set or refine certain aspect of the SMART goal (S/M/A/R/T).
+- moveon_to_next_smartgoal: If the any item (S/M/A/R/T) of SMART goal of active domain in current session still missing.
+- switch_another_domain: If the user explicitly want to switch to new domain, OR all items of SMART goal of current week is complete.
+- End_session: If the user explicitly wants to end the session, OR the overall weekly SMART goal is fully complete.
+
+4. ASK_TYPE: one of
+- reflective_then_question: Default choice. Use when the user provides content and the next step is best served by reflection and an open question, without forcing options or giving prescriptive advice.
+- advice_then_confirm: when the user explicitly requests suggestions, giving exact suggeestions followed by checking feasibility/acceptance.
+- choice_then_ask: when the user is vague/uncertain and needs to offer a small set of options to select from. This is primarily for disambiguation and forward motion.
+- summarize_and_check: when user has ambiguity, asks for recap, asks for confirmation, expresses approval/readiness/closure, or wants to end.
+
+<SMART_GOAL_DEFINITION>
+Specific:  Describe exactly what behavior will be performed.
+Measurable: Specify how success will be quantified (amount, frequency, logging).
+Attainable: Make the goal challenging but realistic given current constraints
+Reward: Define a motivating reward contingent on completing the goal
+Timeframe: Provide a deadline or schedule for when the behavior will occur.
+</SMART_GOAL_DEFINITION>
+
+ANALYSIS FLOW (FOLLOW IN ORDER)
+1) Identify the most salient current domain from RECENT_HISTORY.
+2) Check if conditions for goal switching are met. Check if conditions for domain switching are met.
+   - If met, activatly choose PRIORITY for goal/domain switching.
+3) Assess recent execution status from RECENT_HISTORY and CST entries:
+   - evidence of actions taken -> progress present
+   - evidence of being blocked/stuck/confused/no progress -> execution blockage
+4) Check for contradictions or uncertainty from RECENT_HISTORY.
+5) Summarize the missing SMART aspects for the current domain under currrent session based on CST.
+6) Choose PRIORITY (topic/purpose).
+7) Choose ASK_TYPE (interaction form).
+8) Output based on the OUTPUT FORMAT below.
+
+DEFAULTS / TIE-BREAKERS
+- If PRIORITY is switch_another_domain and the user did not clearly pick the new domain -> choice_then_ask.
+- If PRIORITY is unblock_execution and user asks “what should I do” -> advice_then_confirm; otherwise reflective_then_question or choice_then_ask depending on vagueness.
+- If contradictions are present -> summarize_and_check overrides other ASK_TYPEs.
+- If unsure -> reflective_then_question.
+
+OUTPUT FORMAT (STRICT)
+FOCUS: <sleep|activity|nutrition>
+MISSING_SMART_ASPECT: <some of S/M/A/R/T/ or none>
+PRIORITY: <moveon_to_next_smartgoal|discuss_detail_of_certain_goal|review_progress|unblock_execution|switch_another_domain|End_session>
+ASK_TYPE: <reflective_then_question|advice_then_confirm|choice_then_ask|summarize_and_check>
+
+No additional lines, no punctuation-only lines, no explanations, no JSON, no markdown.
 """

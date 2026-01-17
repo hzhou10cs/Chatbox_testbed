@@ -287,8 +287,9 @@ def start_new_chat_action(user_state, chat_history_state, chat_meta_state):
     if cst_state:
         cst_state = ensure_fixed_state_shape(cst_state)
         cst_state["session"]["session_timestamp"] = session_timestamp
+        cst_state = apply_delta_text(cst_state, None, session_num=new_idx)
     else:
-        cst_state = build_initial_cst(session_timestamp)
+        cst_state = build_initial_cst(session_timestamp, session_num=new_idx)
     save_cst(username, today, new_idx, cst_state)
 
     msg = f"Started a new conversation: {today}, session {new_idx}."
@@ -545,10 +546,13 @@ def chat_send_action(
                     cst_state = ensure_fixed_state_shape(cst_state)
                     cst_state["session"]["session_timestamp"] = session_timestamp
                 else:
-                    cst_state = build_initial_cst(session_timestamp)
+                    cst_state = build_initial_cst(session_timestamp, session_num=session_idx)
             cst_state["session"]["session_timestamp"] = f"{date_str}_session{session_idx}"
-            if extractor_output:
-                cst_state = apply_delta_text(cst_state, extractor_output)
+            cst_state = apply_delta_text(
+                cst_state,
+                extractor_output if extractor_output else None,
+                session_num=session_idx,
+            )
             history_for_patch = _build_history_text(chat_history_state, last_n=5)
             prompt_patch = generate_prompt_patch(
                 cst_state,
@@ -581,9 +585,9 @@ def chat_send_action(
 
     memory_text = ""
     if mode in {0, 1}:
-        reports_text = load_all_session_reports(username)
-        if reports_text:
-            memory_text = "Session reports:\n" + reports_text
+        latest_report = load_latest_session_report(username)
+        if latest_report:
+            memory_text = "Last session report:\n" + latest_report
 
     recent_history_text = ""
     user_input_text = user_input

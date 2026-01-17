@@ -3,7 +3,7 @@ import re
 from typing import Dict, List, Optional, Tuple, Union
 
 from agents.base import OpenAIStyleClient
-from agents.prompt_generator import GENERATOR_PROMPT_V1
+from agents.prompt_generator import GENERATOR_PROMPT_V1, GENERATOR_CONTRO_PROMPT
 from llm_config import CHAT_MODEL_NAME, LLM_BASE_URL, UI_TEST_MODE
 
 
@@ -29,9 +29,9 @@ ALLOWED_DOMAINS = {"activity", "nutrition", "sleep"}
 ALLOWED_GOAL_KEYS = {"Specific", "Measurable", "Attainable", "Reward", "Timeframe"}
 ALLOWED_LEAVES = {
     "session": {"session_timestamp", "agenda"},
-    "activity": {"existing_plan", "progress", "barrier", "goal_set"},
-    "nutrition": {"existing_plan", "progress", "barrier", "goal_set"},
-    "sleep": {"existing_plan", "progress", "barrier", "goal_set"},
+    "activity": {"existing_plan", "progress_made", "current_status", "barrier", "goal_set"},
+    "nutrition": {"existing_plan", "progress_made", "current_status", "barrier", "goal_set"},
+    "sleep": {"existing_plan", "progress_made", "current_status", "barrier", "goal_set"},
 }
 
 
@@ -79,10 +79,11 @@ def _append_text(
 def _ensure_domain(d: Optional[Dict]) -> Dict:
     d = dict(d or {})
     d.setdefault("existing_plan", "")
-    d.setdefault("progress", "")
+    d.setdefault("progress_made", "")
+    d.setdefault("current_status", "")
     d.setdefault("goal_set", {})
     for k in ALLOWED_GOAL_KEYS:
-        d["goal_set"].setdefault(k, "")
+        d["goal_set"].setdefault(k, {})
     d.setdefault("barrier", "")
     return d
 
@@ -93,12 +94,32 @@ def ensure_fixed_state_shape(state: Optional[Dict]) -> Dict:
     st["session"].setdefault("session_timestamp", "")
     st["session"].setdefault(
         "agenda",
-        "Choose one domain to focus on: activity, meal/nutrition, or sleep.",
+        "Choose one domain to focus on: activity, nutrition, or sleep.",
     )
     st.setdefault("allowed_domains", sorted(ALLOWED_DOMAINS))
     for dom in ALLOWED_DOMAINS:
         st[dom] = _ensure_domain(st.get(dom))
     return st
+
+
+def _ensure_week_entry(state: Dict, session_num: int | None) -> Dict:
+    if not session_num:
+        return state
+    week_key = f"week_{session_num}"
+    for dom in ALLOWED_DOMAINS:
+        dom_state = state.setdefault(dom, {})
+        goal_set = dom_state.setdefault("goal_set", {})
+        for k in ALLOWED_GOAL_KEYS:
+            existing = goal_set.get(k, {})
+            if not isinstance(existing, dict):
+                goal_set[k] = {"legacy": existing}
+            goal_set[k].setdefault(week_key, [])
+        barrier = dom_state.get("barrier", {})
+        if not isinstance(barrier, dict):
+            barrier = {"legacy": [barrier] if barrier else []}
+        barrier.setdefault(week_key, [])
+        dom_state["barrier"] = barrier
+    return state
 
 
 # ---------------- Normalization & parsing ----------------
@@ -137,6 +158,7 @@ def _sanitize_updates_text(body: str) -> str:
     s = re.sub(r"\bexisting[_\-\s]*plan\b", "existing_plan", s, flags=re.IGNORECASE)
     s = re.sub(r"\bsession[_\-\s]*timestamp\b", "session_timestamp", s, flags=re.IGNORECASE)
     s = re.sub(r"\bbarriers\b", "barrier", s, flags=re.IGNORECASE)
+    s = re.sub(r"\bmeasure\b", "Measurable", s, flags=re.IGNORECASE)
     for k in ALLOWED_GOAL_KEYS:
         s = re.sub(fr"\b{k}\b", k, s, flags=re.IGNORECASE)
     for d in ALLOWED_DOMAINS:
@@ -215,6 +237,7 @@ def parse_and_clean_deltas(delta_output: Optional[Union[str, Dict, List]]) -> Li
 
 def apply_deltas(state: Optional[Dict], deltas: List[Tuple[List[str], str]]) -> Dict:
     st = ensure_fixed_state_shape(state)
+    week_key = st.get("_session_week_key")
     for path, value in deltas:
         if not path:
             continue
@@ -228,28 +251,66 @@ def apply_deltas(state: Optional[Dict], deltas: List[Tuple[List[str], str]]) -> 
             node[leaf] = value
             continue
         if path[0] in ALLOWED_DOMAINS:
-            if leaf in {"existing_plan", "progress", "barrier"}:
+            if leaf in {"existing_plan", "progress_made", "current_status"}:
                 node[leaf] = value
                 continue
+            if leaf == "barrier":
+                if not week_key:
+                    node[leaf] = value
+                    continue
+                barrier = node.get(leaf, {})
+                if not isinstance(barrier, dict):
+                    barrier = {"legacy": [barrier] if barrier else []}
+                items = barrier.get(week_key, [])
+                if not isinstance(items, list):
+                    items = [items] if items else []
+                if value and value not in items:
+                    items.append(value)
+                barrier[week_key] = items
+                node[leaf] = barrier
+                continue
             if len(path) == 3 and path[1] == "goal_set" and leaf in ALLOWED_GOAL_KEYS:
-                node[leaf] = value
+                if not week_key:
+                    node[leaf] = value
+                    continue
+                goals = node.get(leaf, {})
+                if not isinstance(goals, dict):
+                    goals = {"legacy": goals}
+                items = goals.get(week_key, [])
+                if not isinstance(items, list):
+                    items = [items] if items else []
+                if value and value not in items:
+                    items.append(value)
+                goals[week_key] = items
+                node[leaf] = goals
                 continue
 
     return st
 
 
-def apply_delta_text(state: Optional[Dict], delta_text: Optional[Union[str, Dict, List]]) -> Dict:
-    return apply_deltas(state, parse_and_clean_deltas(delta_text))
+def apply_delta_text(
+    state: Optional[Dict],
+    delta_text: Optional[Union[str, Dict, List]],
+    session_num: int | None = None,
+) -> Dict:
+    st = ensure_fixed_state_shape(state)
+    st = _ensure_week_entry(st, session_num)
+    week_key = f"week_{session_num}" if session_num else None
+    if week_key:
+        st["_session_week_key"] = week_key
+    updated = apply_deltas(st, parse_and_clean_deltas(delta_text))
+    updated.pop("_session_week_key", None)
+    return updated
 
 
 def state_to_text(state: Optional[Dict]) -> str:
     return json.dumps(ensure_fixed_state_shape(state), ensure_ascii=False, indent=2)
 
 
-def build_initial_cst(session_timestamp: str) -> Dict:
+def build_initial_cst(session_timestamp: str, session_num: int | None = None) -> Dict:
     state = ensure_fixed_state_shape({})
     state["session"]["session_timestamp"] = session_timestamp
-    return state
+    return _ensure_week_entry(state, session_num)
 
 
 def build_patch_messages(
@@ -258,22 +319,21 @@ def build_patch_messages(
     meta_text: str | None = None,
 ) -> List[Dict[str, str]]:
     cst_json = json.dumps(cst_state, ensure_ascii=False, indent=2)
-    history_block = ""
-    if chat_history_text:
-        history_block = "Current session chat history:\n" + chat_history_text.strip() + "\n\n"
-    system_text = GENERATOR_PROMPT_V1.strip()
+    system_text = GENERATOR_CONTRO_PROMPT.strip()
     if meta_text:
         system_text = meta_text.strip() + "\n\n" + system_text
-    user_text = (
-        "Generate a prompt patch to guide the Coach Agent's next response\n"
-        f"{history_block}"
-        "CST (JSON):\n"
-        f"{cst_json}"
-    )
-    return [
+    messages = [
         {"role": "system", "content": system_text},
-        {"role": "user", "content": user_text},
+        {"role": "user", "content": "CST (JSON):\n" + cst_json},
     ]
+    if chat_history_text:
+        messages.append(
+            {
+                "role": "user",
+                "content": "Recent chat history:\n" + chat_history_text.strip(),
+            }
+        )
+    return messages
 
 
 def generate_prompt_patch(

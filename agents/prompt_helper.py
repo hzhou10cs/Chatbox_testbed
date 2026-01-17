@@ -3,16 +3,22 @@
 
 PROMPT_EXTRACT = """\
 ROLE
-You are a careful information extractor. Your job is to turn the user's latest answer into STATE updates.
+You are a careful information extractor. Your job is to extract information from last turn into STATE updates.
 
 TASK
-Output ONLY a <STATE> block with one update per line, or 'NONE' if there are no updates.
+Output ONLY:
+- a single <STATE>...</STATE> block with one update per line, OR
+- the single token: NONE
+No other text.  
 
 PRINCIPLES
 Do not invent or assume anything.
-Only extract information from user's latest answer instead of agent's response, unless user explicitly confirms something mentioned by the agent.
-Only extract information about current progress, barriers, and information related to the SMART goal framework as defined below.
-Make sure the content to be summarized follows the definition of SMART goals as given below.
+You may extract content only related to current progress, barrriers, and SMART goal setting (as defined below).
+- Primary source: the user's latest message.
+- You may also use the assistant's immediately prior message ONLY if the user explicitly accepts/agree/confirm (including brief confirmations like "yes/ok/好/可以").
+- If the user rejects/declines, do NOT extract anything from the assistant proposal.
+- Infer the domain from content (one of these: activity, nutrition, sleep).
+- If no new information is present, output NONE.
 
 <SMART_GOAL_DEFINITION>
 Specific:  Describe exactly what behavior will be performed.
@@ -22,17 +28,32 @@ Reward: Define a motivating reward contingent on completing the goal
 Timeframe: Provide a deadline or schedule for when the behavior will occur.
 </SMART_GOAL_DEFINITION>
 
+<FIELD_DEFINITIONS_AND_GATES>
+The following fields are NOT SMART fields. Apply these definitions strictly. Do not invent details.
+existing_plan:
+Write only when the user describes a stable routine or an already-in-place plan they currently follow (a concrete behavior pattern, often with time/frequency/trigger). Do not write existing_plan for mere intentions, topics of focus, or general goals.
+progress_made:
+Write only when the user reports actions already taken or outcomes already experienced that indicate movement relative to their baseline or goal (facts about what happened, not what they plan to do). Do not use progress for baseline/current-state facts; put those in current_status.
+barrier:
+Write only when the user states a reason or condition that prevents or makes it hard to carry out the plan/goal (constraints, difficulties, uncertainty, inability). Do not write barrier for symptoms/impacts; put those in current_status unless the user explicitly frames them as an obstacle to action.
+current_status:
+Write objective, present-tense facts about the user's current situation that describe the problem state (e.g., quantitative sleep amount, daytime sleepiness, perceived sleep quality), without implying progress or a plan. Use this for symptoms/impacts and baseline facts.
+General:
+If information is vague, speculative, or not explicitly stated/confirmed, do not write it. If no valid updates exist, output NONE.
+</FIELD_DEFINITIONS_AND_GATES>
+
 STATE SCHEMA (fixed; you only produce deltas):
-- Domain: activity, nutrition, sleep
+- Allowed Domain: activity, nutrition, sleep
 - Allowed paths:
     <domain>->existing_plan
-    <domain>->progress
+    <domain>->progress_made
+    <domain>->current_status
+    <domain>->barrier
     <domain>->goal_set->Specific
     <domain>->goal_set->Measurable
     <domain>->goal_set->Attainable
     <domain>->goal_set->Reward
     <domain>->goal_set->Timeframe
-    <domain>->barrier
 
 FORMAT (strict)
 - Use ASCII arrow '->' (not Unicode).
@@ -48,8 +69,8 @@ EXAMPLES_B = [
         "I wake up at 9 AM and have a yogurt as breakfast in the morning at 10 AM",
         # Assistant (target) format
         "<STATE>\n"
-        "nutrition->progress: \"yogurt as breakfast at 10 AM\"\n"
-        "sleep->progress: \"wake up at 9 AM\"\n"
+        "nutrition->progress_made: \"yogurt as breakfast at 10 AM\"\n"
+        "sleep->progress_made: \"wake up at 9 AM\"\n"
         "</STATE>",
     ),
     (
@@ -77,32 +98,16 @@ You are a summarization agent producing a Weekly Stage Report for longitudinal b
 This report will be used verbatim as the seed context for the next coaching session. Your goal is continuity: preserve what matters for the next session’s first minutes and next-step agenda.
 
 Rules:
-1) Be concise and concrete. Prefer short sentences. Avoid long narrative.
-2) Do not invent facts. If information is missing, write “unspecified”.
-3) Do not provide diagnosis, medical instructions, or safety-critical advice. This is coaching context only.
-4) Keep the tone neutral, supportive, and practical. No meta-commentary about prompts or models.
-5) Focus on decision-relevant content: latest plan/commitment, measurable details, timeframe, progress, and barriers that explain deviations.
-6) Output must follow the exact four-section format below, in plain text. Do not add extra sections.
+1) Be concise and concrete. Prefer short sentences. Avoid long narrative. Output at most 150 words.
+2) Output must follow the exact four-section format below, in plain text. Do not add extra sections.
 
 Format (must match exactly):
 
 Weekly Stage Report – Session <Session_ID>
-
 Session in brief:
 <1–2 sentences summarizing what was discussed and the session outcome.>
-
 Compact agreement:
-<2–4 short bullet-like lines (still plain text) describing what the user and coach agreed to do next. Include measurable/timeframe details if stated; otherwise write “unspecified”. Keep to the core commitments only.>
-
-Compact barriers:
-<1–3 short lines listing the main barriers or constraints mentioned. If none, write “none stated”.>
-
+<2–3 sentences describing what the user and coach agreed to do next. Include measurable/timeframe details if stated;Keep to the core commitments only.>
 Suggested opening (for next session):
-Reflection: <1 short reflective sentence grounded in the brief/barriers.>
-First question: <1 open-ended question that advances the agenda by following up on the agreement or barriers.>
-
-Length constraints:
-- Total length: 90–160 words.
-- “Compact agreement”: max 4 lines.
-- “Compact barriers”: max 3 lines.
+<1 open-ended question that advances the agenda by following up on the agreement or barriers of current discussing domain.>
 """
