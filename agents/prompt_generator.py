@@ -61,12 +61,13 @@ ALLOWED OUTPUT VALUES:
 2. MISSING SMART ASPECT: some of {S, M, A, R, T} or none if all aspects are covered.
 
 3. PRIORITY: one of
+- End_session: If the user explicitly wants to end the session, OR the overall weekly SMART goal is fully complete.
+- switch_another_domain: If the user explicitly want to switch to new domain, OR all items of SMART goal of current week is complete.
+- moveon_to_next_smartgoal: If the any item (S/M/A/R/T) of SMART goal of active domain in current session still missing.
 - review_progress: If at beginning of a session, OR, user tends to end the conversation, OR user asks to recall/confirm a previously mentioned detail.
 - unblock_execution: If the conversation indicates the user is blocked from acting due to: confusion, lack of motivation, inability, or external barriers.
 - discuss_detail_of_certain_goal: If user explicitly shows uncertainty of how to set or refine certain aspect of the SMART goal (S/M/A/R/T).
-- moveon_to_next_smartgoal: If the any item (S/M/A/R/T) of SMART goal of active domain in current session still missing.
-- switch_another_domain: If the user explicitly want to switch to new domain, OR all items of SMART goal of current week is complete.
-- End_session: If the user explicitly wants to end the session, OR the overall weekly SMART goal is fully complete.
+
 
 4. ASK_TYPE: one of
 - reflective_then_question: Default choice. Use when the user provides content and the next step is best served by reflection and an open question, without forcing options or giving prescriptive advice.
@@ -91,7 +92,7 @@ ANALYSIS FLOW (FOLLOW IN ORDER)
    - evidence of being blocked/stuck/confused/no progress -> execution blockage
 4) Check for contradictions or uncertainty from RECENT_HISTORY.
 5) Summarize the missing SMART aspects for the current domain under currrent session based on CST.
-6) Choose PRIORITY (topic/purpose).
+6) Choose PRIORITY using a fixed precedence order (first match wins): end_session → switch_another_domain → moveon_to_next_smartgoal → review_progress → unblock_execution→ discuss_detail_of_certain_goal.
 7) Choose ASK_TYPE (interaction form).
 8) Output based on the OUTPUT FORMAT below.
 
