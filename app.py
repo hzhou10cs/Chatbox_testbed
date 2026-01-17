@@ -1,3 +1,7 @@
+import argparse
+import os
+import sys
+
 import gradio as gr
 from agents.chat import chat_agent
 from agents.extractor import extractor_agent
@@ -23,6 +27,12 @@ from logic.logic_chat import (
 from logic.logic_goals import load_goal_summary_for_ui, save_goal_feedback_action
 
 from dash_board import DASHBOARD_TXT
+
+_parser = argparse.ArgumentParser(add_help=False)
+_parser.add_argument("--mode", type=str, default=None)
+_args, _unknown = _parser.parse_known_args(sys.argv[1:])
+if _args.mode is not None:
+    os.environ["SYSTEM_MODE"] = _args.mode
 
 
 def switch_page(page_name: str):
