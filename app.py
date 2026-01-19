@@ -76,20 +76,20 @@ with gr.Blocks(title="LLM Agent for Rural Health") as demo:
         reg_password2 = gr.Textbox(label="Confirm password (required)", type="password")
 
         gr.Markdown("### Basic information")
-        reg_first_name = gr.Textbox(label="First name (required)")
-        reg_last_name = gr.Textbox(label="Last name (required)")
+        reg_first_name = gr.Textbox(label="First name")
+        reg_last_name = gr.Textbox(label="Last name")
         reg_gender = gr.Dropdown(
-            label="Gender (required)",
+            label="Gender",
             choices=["Male", "Female", "Other", "Prefer not to say"],
         )
         reg_occupation = gr.Textbox(label="Occupation (optional)")
-        reg_phone = gr.Textbox(label="Phone (required)")
-        reg_email = gr.Textbox(label="Email (required)")
+        reg_phone = gr.Textbox(label="Phone")
+        reg_email = gr.Textbox(label="Email")
 
         gr.Markdown("### Health baseline")
-        reg_height = gr.Textbox(label="Height (required, unit up to you)")
+        reg_height = gr.Textbox(label="Height (unit up to you)")
         reg_initial_weight = gr.Textbox(
-            label="Initial weight (required, unit up to you)"
+            label="Initial weight (unit up to you)"
         )
         reg_body_measurements = gr.Textbox(
             label="Body measurements (optional, e.g., 88-66-90)"
@@ -100,11 +100,11 @@ with gr.Blocks(title="LLM Agent for Rural Health") as demo:
         )
 
         gr.Markdown("### Health history (use N/A if unknown)")
-        reg_allergy = gr.Textbox(label="Allergies (required)", value="N/A")
-        reg_medication = gr.Textbox(label="Medication (required)", value="N/A")
-        reg_lifestyle = gr.Textbox(label="Lifestyle (required)", value="N/A")
+        reg_allergy = gr.Textbox(label="Allergies", value="N/A")
+        reg_medication = gr.Textbox(label="Medication", value="N/A")
+        reg_lifestyle = gr.Textbox(label="Lifestyle", value="N/A")
         reg_medical_history = gr.Textbox(
-            label="Past medical history (required)", value="N/A"
+            label="Past medical history ", value="N/A"
         )
 
         register_button = gr.Button("Submit registration")

@@ -188,31 +188,20 @@ def register_action(
             gr.update(),
         )
 
-    required_fields = [first_name, last_name, gender, phone, email, height, initial_weight]
-    if any(not f for f in required_fields):
-        return (
-            "First name, last name, gender, phone, email, height, and initial weight are required.",
-            user_state,
-            user_info_state,
-            gr.update(),
-            gr.update(),
-            gr.update(),
-        )
-
     user_dir = get_user_dir(reg_username)
     os.makedirs(user_dir, exist_ok=True)
 
     info = default_user_info()
     info.update(
         {
-            "first_name": first_name,
-            "last_name": last_name,
-            "gender": gender,
+            "first_name": first_name or "",
+            "last_name": last_name or "",
+            "gender": gender or "",
             "occupation": occupation or "",
-            "phone": phone,
-            "email": email,
-            "height": height,
-            "initial_weight": initial_weight,
+            "phone": phone or "",
+            "email": email or "",
+            "height": height or "",
+            "initial_weight": initial_weight or "",
             "body_measurements": body_measurements or "",
             "weight_statement": weight_statement or "",
             "allergy": allergy or "N/A",
@@ -329,22 +318,16 @@ def save_profile_action(
     username = user_state.get("username")
     info = load_user_info_dict(username)
 
-    required_fields = [first_name, last_name, gender, phone, email, height, initial_weight]
-    if any(not f for f in required_fields):
-        return (
-            "First name, last name, gender, phone, email, height, and initial weight are required."
-        )
-
     info.update(
         {
-            "first_name": first_name,
-            "last_name": last_name,
-            "gender": gender,
+            "first_name": first_name or "",
+            "last_name": last_name or "",
+            "gender": gender or "",
             "occupation": occupation or "",
-            "phone": phone,
-            "email": email,
-            "height": height,
-            "initial_weight": initial_weight,
+            "phone": phone or "",
+            "email": email or "",
+            "height": height or "",
+            "initial_weight": initial_weight or "",
             "body_measurements": body_measurements or "",
             "weight_statement": weight_statement or "",
             "allergy": allergy or "N/A",
