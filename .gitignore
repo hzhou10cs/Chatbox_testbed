@@ -212,3 +212,7 @@ user_data/
 
 # Scripted tests
 run_openai.sh
+eval_continuity.sh
+eval_proactivity.sh
+eval_repetitive.sh
+eval_smart.sh
