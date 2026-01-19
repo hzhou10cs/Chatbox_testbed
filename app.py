@@ -271,7 +271,13 @@ with gr.Blocks(title="LLM Agent for Rural Health") as demo:
                 
                 system_prompt_box = gr.Textbox(
                     label="Current system prompt (for debugging only)",
-                    lines=12,     
+                    lines=12,
+                    interactive=False,
+                    visible=True,
+                )
+                message_sent_box = gr.Textbox(
+                    label="Last message payload (for debugging only)",
+                    lines=12,
                     interactive=False,
                     visible=True,
                 )
@@ -610,7 +616,7 @@ with gr.Blocks(title="LLM Agent for Rural Health") as demo:
     chat_send_btn.click(
         chat_send_action,
         inputs=[chat_input, chat_history_state, user_state, user_info_state, chat_meta_state],
-        outputs=[chat_history_state, chat_status, chatbot, system_prompt_box, cst_box],
+        outputs=[chat_history_state, chat_status, chatbot, system_prompt_box, message_sent_box, cst_box],
     )
 
     # Chat history

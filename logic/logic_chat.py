@@ -535,7 +535,10 @@ def chat_send_action(
     base_prompt = COACH_SYSTEM_PROMPT_V1
     include_fewshot = mode != 3
     cst_text = ""
+    new_session_start = first_turn
     meta_text = f"Meta: user={username}, session={session_idx}"
+    if new_session_start:
+        meta_text += ", new_session_start=true, generator_priority=review_progress"
     if date_str and session_idx and mode == 0:
         try:
             cst_state = load_cst(username, date_str, session_idx)
@@ -565,7 +568,13 @@ def chat_send_action(
             if not status_msg:
                 status_msg = f"Message sent, but CST update failed: {e}"
 
-    if _is_first_turn_first_session(username, date_str, session_idx, chat_history_state):
+    first_session_first_turn = _is_first_turn_first_session(
+        username,
+        date_str,
+        session_idx,
+        chat_history_state,
+    )
+    if first_session_first_turn:
         base_prompt = COACH_SYSTEM_PROMPT_1ST_WEEK
         prompt_patch = ""
     elif mode == 1:
@@ -579,15 +588,20 @@ def chat_send_action(
     else:
         prompt_patch = ""
 
+    latest_report = ""
+    if mode in {0, 1}:
+        latest_report = load_latest_session_report(username)
+    if new_session_start and latest_report and not first_session_first_turn:
+        base_prompt = (
+            (base_prompt or "") + "IMPORTANT: New session start: summarize last week based on the report first and then ask the current progress.\n\n"
+        )
     base_prompt = meta_text + "\n\n" + (base_prompt or "")
     if mode == 3:
         base_prompt = meta_text
 
     memory_text = ""
-    if mode in {0, 1}:
-        latest_report = load_latest_session_report(username)
-        if latest_report:
-            memory_text = "Last session report:\n" + latest_report
+    if mode in {0, 1} and latest_report:
+        memory_text = "Last session report:\n" + latest_report
 
     recent_history_text = ""
     user_input_text = user_input
@@ -615,6 +629,21 @@ def chat_send_action(
         base_prompt=base_prompt,
         include_fewshot=include_fewshot,
     )
+
+    debug_messages = chat_agent.build_messages(
+        user_input_text,
+        user_state,
+        user_info_state,
+        goals_context,
+        prompt_patch=prompt_patch,
+        base_prompt=base_prompt,
+        memory_text=memory_text,
+        recent_history_text=recent_history_text,
+        include_fewshot=include_fewshot,
+    )
+    debug_message_text = "\n\n".join(
+        f"{m['role']}:\n{m['content']}" for m in debug_messages
+    ).strip()
 
     reply = llm_reply_stub(
         user_input_text,
@@ -647,7 +676,7 @@ def chat_send_action(
         )
 
     # Chatbot UI uses tuples, so we return new_history for both internal state and display.
-    return new_history, status_msg, new_history, system_prompt, cst_text
+    return new_history, status_msg, new_history, system_prompt, debug_message_text, cst_text
 
 
 def refresh_history_list_action(user_state):

@@ -1,6 +1,0 @@
-{
-  "2025-11-26": {
-    "summary": "{\n  \"week\": 1,\n  \"day\": 1,\n  \"patient\": {},\n  \"status\": {},\n  \"session\": {\n    \"agenda\": \"Choose one domain to focus on: activity, meal/nutrition, or tracking habits\"\n  },\n  \"nutrition\": {\n    \"fact\": \"None\",\n    \"goal_set\": {\n      \"Timeframe\": \"None\",\n      \"Reward\": \"None\",\n      \"Measure\": \"None\",\n      \"Attainable\": \"None\",\n      \"Specific\": \"None\"\n    },\n    \"barrier\": \"None\"\n  },\n  \"activity\": {\n    \"fact\": \"None\",\n    \"goal_set\": {\n      \"Timeframe\": \"None\",\n      \"Reward\": \"None\",\n      \"Measure\": \"None\",\n      \"Attainable\": \"None\",\n      \"Specific\": \"None\"\n    },\n    \"barrier\": \"None\"\n  },\n  \"sleep\": {\n    \"fact\": \"None\",\n    \"goal_set\": {\n      \"Timeframe\": \"None\",\n      \"Reward\": \"None\",\n      \"Measure\": \"None\",\n      \"Attainable\": \"None\",\n      \"Specific\": \"None\"\n    },\n    \"barrier\": \"None\"\n  },\n  \"tracking\": {\n    \"fact\": \"None\",\n    \"goal_set\": {\n      \"Timeframe\": \"None\",\n      \"Reward\": \"None\",\n      \"Measure\": \"None\",\n      \"Attainable\": \"None\",\n      \"Specific\": \"None\"\n    },\n    \"barrier\": \"None\"\n  }\n}",
-    "feedback": ""
-  }
-}

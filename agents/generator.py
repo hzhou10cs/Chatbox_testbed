@@ -3,7 +3,7 @@ import re
 from typing import Dict, List, Optional, Tuple, Union
 
 from agents.base import OpenAIStyleClient
-from agents.prompt_generator import GENERATOR_PROMPT_V1, GENERATOR_CONTRO_PROMPT
+from agents.prompt_generator import GENERATOR_CONTRO_PROMPT
 from llm_config import CHAT_MODEL_NAME, LLM_BASE_URL, UI_TEST_MODE
 
 
