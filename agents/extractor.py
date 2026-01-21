@@ -1,7 +1,7 @@
 from typing import Dict, List, Optional
 
 from agents.base import OpenAIStyleClient
-from agents.prompt_helper import EXAMPLES_B, PROMPT_EXTRACT, WEEKLY_SUMMARY
+from agents.prompt_helper import EXAMPLES_B, PROMPT_EXTRACT, SESSION_SUMMARY
 
 from llm_config import (
     UI_TEST_MODE,
@@ -64,9 +64,9 @@ class ExtractorAgent:
         except Exception as e:
             return f"[Extractor error] {e}"
 
-    def gen_weekly_report(self, chat_history: List[Dict[str, str]] | List[tuple]) -> str:
+    def gen_session_report(self, chat_history: List[Dict[str, str]] | List[tuple]) -> str:
         """
-        Summarize the current session using WEEKLY_SUMMARY prompt.
+        Summarize the current session using SESSION_SUMMARY prompt.
         """
         if UI_TEST_MODE:
             return ""
@@ -82,11 +82,11 @@ class ExtractorAgent:
             lines.append(f"Agent: {str(assistant_text).strip()}")
 
         messages: List[Dict[str, str]] = [
-            {"role": "system", "content": WEEKLY_SUMMARY},
+            {"role": "system", "content": SESSION_SUMMARY},
             {
                 "role": "user",
                 "content": (
-                    "Generate a Weekly Stage Report that will seed the next coaching session.\n"
+                    "Generate a Session Stage Report that will seed the next coaching session.\n"
                     + "\n".join(lines).strip()
                 ),
             },

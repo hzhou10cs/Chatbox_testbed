@@ -145,6 +145,15 @@ env.bak/
 venv.bak/
 chatbox/
 chatbot/
+user_data_*/
+eval_continuity_*/
+eval_proactivity_*/
+eval_repetitive_*/
+eval_smart_*/
+out_continuity_*/
+out_proactivity_*/
+out_repetitive_*/
+out_smart_*/
 
 # Spyder project settings
 .spyderproject
@@ -217,3 +226,6 @@ eval_continuity.sh
 eval_proactivity.sh
 eval_repetitive.sh
 eval_smart.sh
+eval_all*
+*.fig
+eval_results/

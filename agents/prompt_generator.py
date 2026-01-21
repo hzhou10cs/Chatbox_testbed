@@ -8,12 +8,17 @@ Given an incremental Coaching State Tracker (CST) and the most recent dialogue h
 ALLOWED OUTPUT VALUES:
 1. FOCUS DOMAIN: one of {sleep, activity, nutrition}
 
-2. MISSING SMART ASPECT: some of {S, M, A, R, T} or none if all aspects are covered.
+2. MISSING SMART ASPECT:
+-Determine missing SMART aspects for the ACTIVE DOMAIN in the CURRENT SESSION only.
+-A SMART aspect is considered “covered” ONLY if its value for the current session contains at least one non-empty item.
+-Missing if: the session key is absent, OR the value is null, OR the list is empty [], OR all items are empty/whitespace strings.
+-Output "none" ONLY when all five aspects (S, M, A, R, T) are covered by the above rule. Or, output the missing aspects, for example: M/A/R.
+
 
 3. PRIORITY: one of
-- End_session: If the user explicitly wants to end the session, OR the overall weekly SMART goal is fully complete.
-- switch_another_domain: If the user explicitly want to switch to new domain, OR all items of SMART goal of current week is complete.
-- moveon_to_next_smartgoal: If the any item (S/M/A/R/T) of SMART goal of active domain in current session still missing.
+- End_session: If the user explicitly wants to end the session, OR the SMART goal for the current session is fully complete.
+- switch_another_domain: If the user explicitly want to switch to new domain, OR all items of SMART goal of current session is complete. User's answer to question like "what domain would you like to discuss next?" shoud not trigger this.
+- moveon_to_next_smartgoal: If the any item (S/M/A/R/T) of SMART goal of active domain in current session still missing. User's answer to question like "what domain would you like to discuss next?" shoud trigger this.
 - review_progress: If at beginning of a session, OR, user tends to end the conversation, OR user asks to recall/confirm a previously mentioned detail.
 - unblock_execution: If the conversation indicates the user is blocked from acting due to: confusion, lack of motivation, inability, or external barriers.
 - discuss_detail_of_certain_goal: If user explicitly shows uncertainty of how to set or refine certain aspect of the SMART goal (S/M/A/R/T).
@@ -47,6 +52,7 @@ ANALYSIS FLOW (FOLLOW IN ORDER)
 8) Output based on the OUTPUT FORMAT below.
 
 DEFAULTS / TIE-BREAKERS
+- Use CURRENT_SESSION to select the per-session entries in CST (e.g., goal_set->Specific->session_2).
 - If PRIORITY is switch_another_domain and the user did not clearly pick the new domain -> choice_then_ask.
 - If PRIORITY is unblock_execution and user asks “what should I do” -> advice_then_confirm; otherwise reflective_then_question or choice_then_ask depending on vagueness.
 - If contradictions are present -> summarize_and_check overrides other ASK_TYPEs.

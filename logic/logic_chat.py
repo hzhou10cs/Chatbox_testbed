@@ -17,7 +17,11 @@ from agents.generator import (
     generate_prompt_patch,
     state_to_text,
 )
-from agents.prompt_chat import COACH_SYSTEM_PROMPT_1ST_WEEK, COACH_SYSTEM_PROMPT_V1
+from agents.prompt_chat import (
+    COACH_SYSTEM_PROMPT_1ST_SESSION,
+    COACH_SYSTEM_PROMPT_IDENTITY,
+    COACH_SYSTEM_PROMPT_IDENTITY2
+)
 from .logic_progress import load_progress_data
 
 
@@ -418,7 +422,7 @@ def end_chat_action(user_state, chat_history_state, chat_meta_state):
     mode = _get_mode()
     if mode in {0, 1}:
         try:
-            report_text = extractor_agent.gen_weekly_report(chat_history_state)
+            report_text = extractor_agent.gen_session_report(chat_history_state)
             save_session_report(username, new_meta, report_text)
         except Exception as e:
             msg = (
@@ -489,7 +493,7 @@ def chat_send_action(
         progress_entry = progress_data[today]
      
     goals_context_parts: List[str] = []
-    # goals_context_parts.append(f"- Week: {week_idx}, Day {day_in_week}")
+    # goals_context_parts.append(f"- Session: {session_idx}")
 
     if progress_entry:
         lines = ["Latest daily progress logged by the user for this plan day:"]
@@ -532,7 +536,12 @@ def chat_send_action(
     session_idx = chat_meta_state.get("index")
     prompt_patch = ""
     first_turn = not chat_history_state
-    base_prompt = COACH_SYSTEM_PROMPT_V1
+    if mode == 0:
+        base_prompt = COACH_SYSTEM_PROMPT_IDENTITY2
+    elif mode in {1, 2}:
+        base_prompt = COACH_SYSTEM_PROMPT_IDENTITY
+    else:
+        base_prompt = COACH_SYSTEM_PROMPT_IDENTITY
     include_fewshot = mode != 3
     cst_text = ""
     new_session_start = first_turn
@@ -575,7 +584,7 @@ def chat_send_action(
         chat_history_state,
     )
     if first_session_first_turn:
-        base_prompt = COACH_SYSTEM_PROMPT_1ST_WEEK
+        base_prompt = COACH_SYSTEM_PROMPT_1ST_SESSION
         prompt_patch = ""
     elif mode == 1:
         if first_turn:
@@ -593,7 +602,7 @@ def chat_send_action(
         latest_report = load_latest_session_report(username)
     if new_session_start and latest_report and not first_session_first_turn:
         base_prompt = (
-            (base_prompt or "") + "IMPORTANT: New session start: summarize last week based on the report first and then ask the current progress.\n\n"
+            (base_prompt or "") + "IMPORTANT: New session start: summarize last session based on the report first and then ask the current progress.\n\n"
         )
     base_prompt = meta_text + "\n\n" + (base_prompt or "")
     if mode == 3:
@@ -602,6 +611,12 @@ def chat_send_action(
     memory_text = ""
     if mode in {0, 1} and latest_report:
         memory_text = "Last session report:\n" + latest_report
+    if mode == 0 and cst_text:
+        cst_block = "Current CST:\n" + cst_text
+        if memory_text:
+            memory_text = memory_text + "\n\n" + cst_block
+        else:
+            memory_text = cst_block
 
     recent_history_text = ""
     user_input_text = user_input
@@ -610,11 +625,11 @@ def chat_send_action(
         if recent_history_text:
             recent_history_text = "Recent chat history:\n" + recent_history_text
     elif mode == 1:
-        recent_history_text = _build_history_text(chat_history_state, last_n=None)
+        recent_history_text = _build_history_text(chat_history_state, last_n=5)
         if recent_history_text:
             recent_history_text = "Recent chat history:\n" + recent_history_text
     elif mode in {2, 3}:
-        history_text = _build_history_text(chat_history_state, last_n=None)
+        history_text = _build_history_text(chat_history_state, last_n=5)
         if history_text:
             recent_history_text = history_text + "\nUser: " + user_input
         else:

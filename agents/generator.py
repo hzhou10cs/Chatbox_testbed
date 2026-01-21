@@ -102,10 +102,10 @@ def ensure_fixed_state_shape(state: Optional[Dict]) -> Dict:
     return st
 
 
-def _ensure_week_entry(state: Dict, session_num: int | None) -> Dict:
+def _ensure_session_entry(state: Dict, session_num: int | None) -> Dict:
     if not session_num:
         return state
-    week_key = f"week_{session_num}"
+    session_key = f"session_{session_num}"
     for dom in ALLOWED_DOMAINS:
         dom_state = state.setdefault(dom, {})
         goal_set = dom_state.setdefault("goal_set", {})
@@ -113,11 +113,11 @@ def _ensure_week_entry(state: Dict, session_num: int | None) -> Dict:
             existing = goal_set.get(k, {})
             if not isinstance(existing, dict):
                 goal_set[k] = {"legacy": existing}
-            goal_set[k].setdefault(week_key, [])
+            goal_set[k].setdefault(session_key, [])
         barrier = dom_state.get("barrier", {})
         if not isinstance(barrier, dict):
             barrier = {"legacy": [barrier] if barrier else []}
-        barrier.setdefault(week_key, [])
+        barrier.setdefault(session_key, [])
         dom_state["barrier"] = barrier
     return state
 
@@ -237,7 +237,7 @@ def parse_and_clean_deltas(delta_output: Optional[Union[str, Dict, List]]) -> Li
 
 def apply_deltas(state: Optional[Dict], deltas: List[Tuple[List[str], str]]) -> Dict:
     st = ensure_fixed_state_shape(state)
-    week_key = st.get("_session_week_key")
+    session_key = st.get("_session_key")
     for path, value in deltas:
         if not path:
             continue
@@ -255,33 +255,33 @@ def apply_deltas(state: Optional[Dict], deltas: List[Tuple[List[str], str]]) -> 
                 node[leaf] = value
                 continue
             if leaf == "barrier":
-                if not week_key:
+                if not session_key:
                     node[leaf] = value
                     continue
                 barrier = node.get(leaf, {})
                 if not isinstance(barrier, dict):
                     barrier = {"legacy": [barrier] if barrier else []}
-                items = barrier.get(week_key, [])
+                items = barrier.get(session_key, [])
                 if not isinstance(items, list):
                     items = [items] if items else []
                 if value and value not in items:
                     items.append(value)
-                barrier[week_key] = items
+                barrier[session_key] = items
                 node[leaf] = barrier
                 continue
             if len(path) == 3 and path[1] == "goal_set" and leaf in ALLOWED_GOAL_KEYS:
-                if not week_key:
+                if not session_key:
                     node[leaf] = value
                     continue
                 goals = node.get(leaf, {})
                 if not isinstance(goals, dict):
                     goals = {"legacy": goals}
-                items = goals.get(week_key, [])
+                items = goals.get(session_key, [])
                 if not isinstance(items, list):
                     items = [items] if items else []
                 if value and value not in items:
                     items.append(value)
-                goals[week_key] = items
+                goals[session_key] = items
                 node[leaf] = goals
                 continue
 
@@ -294,12 +294,12 @@ def apply_delta_text(
     session_num: int | None = None,
 ) -> Dict:
     st = ensure_fixed_state_shape(state)
-    st = _ensure_week_entry(st, session_num)
-    week_key = f"week_{session_num}" if session_num else None
-    if week_key:
-        st["_session_week_key"] = week_key
+    st = _ensure_session_entry(st, session_num)
+    session_key = f"session_{session_num}" if session_num else None
+    if session_key:
+        st["_session_key"] = session_key
     updated = apply_deltas(st, parse_and_clean_deltas(delta_text))
-    updated.pop("_session_week_key", None)
+    updated.pop("_session_key", None)
     return updated
 
 
@@ -310,7 +310,7 @@ def state_to_text(state: Optional[Dict]) -> str:
 def build_initial_cst(session_timestamp: str, session_num: int | None = None) -> Dict:
     state = ensure_fixed_state_shape({})
     state["session"]["session_timestamp"] = session_timestamp
-    return _ensure_week_entry(state, session_num)
+    return _ensure_session_entry(state, session_num)
 
 
 def build_patch_messages(

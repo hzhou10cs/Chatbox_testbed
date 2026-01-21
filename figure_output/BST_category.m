@@ -1,4 +1,21 @@
 %% Two side-by-side pie charts with TOP legend and BOTTOM titles (MATLAB R2025a)
+% Random test data (two pies)
+rng(2026);
+dataA = rand(1,6); dataA = dataA / sum(dataA);
+dataB = rand(1,6); dataB = dataB / sum(dataB);
+
+xlsxPath  = 'eval_results/eval_repetitive_mode1/results.xlsx';
+sheetName = 'unit_level';   % This sheet contains: user_id, session_id, ..., bct_type, is_redundant
+
+% BCT types (fixed order) - used for counting
+bctTypes = {
+    'action_planning'
+    'problem_solving'
+    'self_monitoring'
+    'feedback_reward'
+    'education_instruction'
+    'motivational_support'
+};
 
 % Categories (fixed order)
 cats = {
@@ -10,10 +27,46 @@ cats = {
     'Motivational Support'
 };
 
-% Random test data (two pies)
-rng(2026);
-dataA = rand(1,6); dataA = dataA / sum(dataA);
-dataB = rand(1,6); dataB = dataB / sum(dataB);
+
+% Read table
+assert(isfile(xlsxPath), 'Excel file not found: %s', xlsxPath);
+T = readtable(xlsxPath, 'Sheet', sheetName, 'VariableNamingRule','preserve');
+
+% Locate required columns robustly (case-insensitive)
+varsLower = lower(string(T.Properties.VariableNames));
+
+bctColIdx = find(varsLower == "bct_type", 1);
+redColIdx = find(varsLower == "is_redundant", 1);
+
+assert(~isempty(bctColIdx), 'Missing column "bct_type" in %s (sheet: %s).', xlsxPath, sheetName);
+assert(~isempty(redColIdx), 'Missing column "is_redundant" in %s (sheet: %s).', xlsxPath, sheetName);
+
+bct = string(T.(T.Properties.VariableNames{bctColIdx}));
+isRed = T.(T.Properties.VariableNames{redColIdx});
+
+% Basic validity
+valid = ~ismissing(bct) & ~ismissing(isRed);
+
+bct = lower(strtrim(bct(valid)));
+isRed = isRed(valid);
+
+% Count totals (dataA) and redundant totals (dataB) per type
+dataA = zeros(1, numel(bctTypes));
+dataB = zeros(1, numel(bctTypes));
+
+for i = 1:numel(bctTypes)
+    type = bctTypes{i};
+    sel = (bct == type);
+    dataA(i) = sum(sel);
+    dataB(i) = sum(sel & (isRed == 1));
+end
+
+% Optional safety: if redundant totals are all zero, pie() will be degenerate.
+% If you do not need the 2nd pie, you can ignore dataB entirely.
+if sum(dataB) == 0
+    % Keep as zeros; you may choose to skip plotting the second pie later.
+    % dataB = ones(1, numel(dataB));  % alternative: force display
+end
 
 % Typography (consistent with previous style)
 fontName      = 'Helvetica';

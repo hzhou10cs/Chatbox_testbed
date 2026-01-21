@@ -1,45 +1,62 @@
-%% (2R) Main Fig 2 Replacement: Radar chart for SMART dimensions (3 benchmarks)
-% - Uses per-user aggregation first, then benchmark-level mean
-% - Radar chart avoids overlapping markers/errorbars on a 5-dim axis
-% - Colors: A/B/C = [cRed; cBlue; cOrange]
+%% SMART Dimension Radar (3 benchmarks) from goal-level Excel files
+% - Reads 3 Excel files (one per benchmark)
+% - Excludes rows with goal_text == 'NONE' (case-insensitive)
+% - Computes mean score for each SMART dimension: S/M/A/R/T (0..5)
+% - Plots radar chart (same style as your uploaded version)
 % MATLAB R2025a
 
 clear; clc;
-load('sim_smart.mat', 'scores','benchNames','dimNames','nUsers','nBench','colors');
 
-% ---------------- Style ----------------
+% -------------------- USER CONFIG --------------------
+xlsxFiles  = { ...
+    'eval_results\eval_smart_mode0\results_goals.xlsx', ...   % Benchmark A (replace)
+    'eval_results\eval_smart_mode1\results_goals.xlsx', ...   % Benchmark B (replace)
+    'eval_results\eval_smart_mode2\results_goals.xlsx'  ...   % Benchmark C (replace)
+};
+
+benchNames = {'SSC','MSS','SA'};
+nBench = numel(xlsxFiles);
+
+sheetName = 1;   % change if needed (e.g., 'Sheet1')
+% -----------------------------------------------------
+
+% -------------------- STYLE / COLORS --------------------
 fontName = 'Helvetica';
 axFontSize = 16;
 legFontSize = 16;
 
 lineW = 3;
-fillAlpha = 0.10;    % polygon fill alpha
+fillAlpha = 0.10;
 gridAlpha = 0.25;
 
-% Optional: show CI band polygon (OFF by default for readability)
-showCI = false;      % set true if you want ±95% CI shown
-z = 1.96;
+% Benchmark colors (A/B/C)
+cBlue   = [0.0353, 0.5176, 0.8902];
+cRed    = [0.9098, 0.2549, 0.0941];
+cOrange = [0.9294, 0.6941, 0.1255];
+colors  = [cRed; cBlue; cOrange];   % A/B/C
+% ------------------------------------------------------
 
-% ---------------- Aggregate: per-user -> benchmark mean ----------------
-% dimMean(u,b,k) = mean over domains & sessions for that dimension
-dimMean = squeeze(mean(scores, [3 4]));   % (u,b,k)
+% -------------------- DIMENSIONS -----------------------
+dimCols = ["specific","measurable","achievable","relevant","time_bound"];
+dimShort = {'Specific','Measure','Attainable','Reward','Timeframe'};    % axis tick labels (compact)
+nDim = numel(dimCols);
+% ------------------------------------------------------
 
-mu = squeeze(mean(dimMean, 1));           % (b,k)
-sd = squeeze(std(dimMean, 0, 1));         % (b,k)
-se = sd ./ sqrt(nUsers);
-ci = z * se;                              % (b,k)
+% -------------------- READ + COMPUTE MEANS --------------------
+mu = NaN(nBench, nDim);   % benchmark-level means (1x5 per benchmark)
+N  = zeros(nBench, 1);    % number of valid goals per benchmark (after NONE filtering)
 
-% ---------------- Radar geometry ----------------
-nDim = size(mu,2);            % should be 5
+for b = 1:nBench
+    [mu(b,:), N(b)] = compute_dim_means_from_file(xlsxFiles{b}, sheetName, dimCols);
+end
+
+% Close polygons for radar
 thetaBase = (0:nDim-1)/nDim * 2*pi;
 thetaPoly = [thetaBase, thetaBase(1)];
+muPoly    = [mu, mu(:,1)];
 
-% Close polygons
-muPoly = [mu, mu(:,1)];
-ciPoly = [ci, ci(:,1)];
-
-% ---------------- Figure + polar axes ----------------
-fig = figure('Color','w', 'Position',[100 100 600 500]);
+% -------------------- PLOT (Radar) --------------------
+fig = figure('Color','w', 'Position',[100 100 500 400]);
 
 ax = polaraxes(fig, 'Units','normalized', 'Position',[0.08 0.20 0.84 0.75]);
 hold(ax,'on');
@@ -50,12 +67,8 @@ ax.ThetaDir = 'clockwise';
 ax.RLim  = [0 5];
 ax.RTick = 0:1:5;
 
-% Put dimension labels around
 ax.ThetaTick = rad2deg(thetaBase);
-
-% Short labels to avoid crowding (recommended for radar)
-% If you prefer full dimNames, replace the cell array below with dimNames.
-ax.ThetaTickLabel = {'S','M','A','R','T'};
+ax.ThetaTickLabel = dimShort;
 
 ax.FontName = fontName;
 ax.FontSize = axFontSize;
@@ -65,36 +78,23 @@ ax.GridAlpha = gridAlpha;
 ax.LineWidth = 1;
 ax.Clipping = 'off';
 
-% ---------------- Plot: fill + line (and optional CI band) ----------------
 hLine = gobjects(1, nBench);
 
 for b = 1:nBench
     r = muPoly(b,:);
 
-    % Fill aligned with polar axes: use patch(theta,r) directly
+    % Fill (aligned with polar axes): patch(theta,r)
     patch(ax, thetaPoly, r, colors(b,:), ...
         'FaceAlpha', fillAlpha, 'EdgeColor', 'none', 'HandleVisibility','off');
 
-    % Optional CI band: draw (mu-ci) to (mu+ci) as a ring-like polygon
-    if showCI
-        rLo = max(0, r - ciPoly(b,:));
-        rHi = min(5, r + ciPoly(b,:));
-        % Construct a closed band polygon
-        thetaBand = [thetaPoly, fliplr(thetaPoly)];
-        rBand = [rHi, fliplr(rLo)];
-        patch(ax, thetaBand, rBand, colors(b,:), ...
-            'FaceAlpha', 0.08, 'EdgeColor', 'none', 'HandleVisibility','off');
-    end
-
     % Mean polygon line (for legend)
-    hLine(b) = polarplot(ax, thetaPoly, r, '-', 'LineWidth', lineW, 'Color', colors(b,:));
+    hLine(b) = polarplot(ax, thetaPoly, r, '-', ...
+        'LineWidth', lineW, 'Color', colors(b,:));
 end
 
-% ---------------- Legend: bottom, centered, 1 row ----------------
+% Legend: bottom, centered, 1 row
 leg = legend(ax, hLine, benchNames, ...
-    'Location','southoutside', ...
-    'Orientation','horizontal', ...
-    'NumColumns', 3);
+    'Location','southoutside', 'Orientation','horizontal', 'NumColumns', 3);
 set(leg, 'Box','on', 'FontName',fontName, 'FontSize',legFontSize, 'FontWeight','bold');
 
 % Force center alignment (robust)
@@ -102,5 +102,76 @@ leg.Units = 'normalized';
 leg.Position(1) = 0.5 - leg.Position(3)/2;
 leg.Position(2) = 0.05;
 
-% Optional: if you want to show full dimension names somewhere else,
-% you can add a small text box annotation on the right or below.
+% Optional: print summary in Command Window
+disp('SMART dimension means (excluding goal_text == NONE):');
+Tsum = table(string(benchNames(:)), N(:), mu(:,1), mu(:,2), mu(:,3), mu(:,4), mu(:,5), ...
+    'VariableNames', {'Benchmark','N_valid_goals','Specific','Measurable','Achievable','Relevant','TimeBound'});
+disp(Tsum);
+
+% Optional export
+% exportgraphics(fig, 'smart_dimension_radar.png', 'Resolution', 300);
+% exportgraphics(fig, 'smart_dimension_radar.pdf', 'ContentType', 'vector');
+
+%% -------------------- LOCAL FUNCTION --------------------
+function [muRow, nValid] = compute_dim_means_from_file(xlsxPath, sheetName, dimCols)
+%COMPUTE_DIM_MEANS_FROM_FILE Read one goal-level SMART file and compute dimension means.
+% Excludes rows where goal_text == 'NONE' (case-insensitive).
+% Also drops rows with non-empty parse_error if the column exists.
+% Keeps only status_code==200 if the column exists.
+
+    assert(isfile(xlsxPath), 'Excel file not found: %s', xlsxPath);
+
+    T = readtable(xlsxPath, 'Sheet', sheetName, 'VariableNamingRule','preserve');
+    vars = string(T.Properties.VariableNames);
+    varsLower = lower(vars);
+
+    % Required: goal_text
+    iGoal = find(varsLower == "goal_text", 1);
+    assert(~isempty(iGoal), 'Missing column "goal_text" in %s', xlsxPath);
+
+    goalText = string(T.(vars(iGoal)));
+    goalNorm = lower(strtrim(goalText));
+
+    % Base validity: goal_text not NONE
+    valid = ~ismissing(goalNorm) & (goalNorm ~= "none");
+
+    % Optional: status_code == 200
+    iStatus = find(varsLower == "status_code", 1);
+    if ~isempty(iStatus)
+        sc = T.(vars(iStatus));
+        valid = valid & ~ismissing(sc) & (sc == 200);
+    end
+
+    % Optional: parse_error empty
+    iParse = find(varsLower == "parse_error", 1);
+    if ~isempty(iParse)
+        pe = T.(vars(iParse));
+        okParse = true(height(T),1);
+
+        if iscell(pe)
+            okParse = cellfun(@(x) isempty(x) || (ischar(x) && isempty(strtrim(x))) || (isstring(x) && strlength(x)==0), pe);
+        elseif isstring(pe)
+            okParse = ismissing(pe) | (strlength(pe)==0);
+        end
+
+        valid = valid & okParse;
+    end
+
+    nValid = sum(valid);
+
+    % Compute mean per dimension on valid rows
+    muRow = NaN(1, numel(dimCols));
+
+    for k = 1:numel(dimCols)
+        iDim = find(varsLower == dimCols(k), 1);
+        assert(~isempty(iDim), 'Missing column "%s" in %s', dimCols(k), xlsxPath);
+
+        x = double(T.(vars(iDim)));
+        x = x(valid);
+
+        % Safety clamp to [0,5] in case of out-of-range values
+        x = min(5, max(0, x));
+
+        muRow(k) = mean(x, 'omitnan');
+    end
+end

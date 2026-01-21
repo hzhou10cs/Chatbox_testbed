@@ -92,8 +92,8 @@ EXAMPLES_B = [
     ),
 ]
 
-WEEKLY_SUMMARY = """
-You are a summarization agent producing a Weekly Stage Report for longitudinal behavioral health coaching.
+SESSION_SUMMARY = """
+You are a summarization agent producing a Session Stage Report for longitudinal behavioral health coaching.
 
 This report will be used verbatim as the seed context for the next coaching session. Your goal is continuity: preserve what matters for the next session’s first minutes and next-step agenda.
 
@@ -103,7 +103,7 @@ Rules:
 
 Format (must match exactly):
 
-Weekly Stage Report – Session <Session_ID>
+Session Stage Report – Session <Session_ID>
 Session in brief:
 <1–2 sentences summarizing what was discussed and the session outcome.>
 Compact agreement:
