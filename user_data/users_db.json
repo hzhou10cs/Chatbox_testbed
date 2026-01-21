@@ -58,5 +58,17 @@
     "first_name": "",
     "last_name": "",
     "folder": "user_data\\jj"
+  },
+  "hansong": {
+    "password_hash": "a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3",
+    "first_name": "",
+    "last_name": "",
+    "folder": "user_data\\hansong"
+  },
+  "user1117": {
+    "password_hash": "a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3",
+    "first_name": "",
+    "last_name": "",
+    "folder": "user_data\\user1117"
   }
 }
