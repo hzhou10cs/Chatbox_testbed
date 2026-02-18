@@ -1,16 +1,18 @@
 DASHBOARD_TXT = """
-## 📊 Dashboard – LLM Behavioral Health Coach
+## 📊 Dashboard – LLM Behavioral Change Coach
 
-Welcome to the **LLM Behavioral Health Assistant**.  
+Welcome to the **LLM Behavioral Change Assistant**.  
 This dashboard is a quick guide to what the app can do, how to use the UI, and how the backend is wired.
 
-This app has 3000+ lines of Python code for frontend + backend logic, plus prompt engineering for dual agents.
+This app has 5000+ lines of Python code for frontend + backend logic, plus prompt engineering for multi agents.
+
+Authored by: Hansong Zhou and collaborators from Florida State University.
 
 ---
 
-### 🧭 What this app does (V0.1)
+### 🧭 What this app does (V5.32)
 
-This app is a **12-week behavioral health coaching assistant** with:
+This app is a **12-week behavioral change coaching assistant** with:
 
 - ⭐ **User accounts & profiles**  
   Each user has an account with basic contact info and health background.
@@ -18,10 +20,10 @@ This app is a **12-week behavioral health coaching assistant** with:
 - ⭐ **Progress tracking over weeks & days**  --> will be applied in prompt
   You can log progress by week/day and revisit or edit entries later.
 
-- **Dual-agent design: LLM-driven coaching agent**  
+- **Multi-agent design: LLM-driven coaching agent**  
   A “coach” agent chats with the user using Motivational Interviewing + SMART goal style prompts.
 
-- **Dual-agent design: Extractor / summarizer agent**  
+- **Multi-agent design: Extractor / summarizer agent**  
   A second “extractor” agent summarizes recent conversations into structured JSON “goal summaries”.
 
 - ⭐ **Goal summary + user feedback**  --> feedback will be applied in prompt

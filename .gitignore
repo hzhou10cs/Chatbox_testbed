@@ -229,3 +229,5 @@ eval_smart.sh
 eval_all*
 *.fig
 eval_results/
+figure_output/
+figure_output_new/
